@@ -1,0 +1,34 @@
+"/1/statistics/current",
+"/1/statistics/history",	# historical stats
+"/1/statistics/keys",		# key list with descriptions
+"/1/statistics/keys/<KEY>",	# description of specific key
+"/1/statistics/protocols",
+
+GET /platform/1/statistics/current?
+degraded=<boolean>
+If true, try to continue even if some nodes are unavailable. If some nodes are
+unavailable, errors will be present in the per-key returned data.
+
+devid=<string>
+Query the specified node by device id (devid). This parameter can be set to
+either an integer representing the devid or set to all. You can repeat this
+parameter to query multiple nodes or set this parameter to the all option to
+query all nodes. Set this value to 0 to query the local node.
+
+key=<string>
+Query multiple keys by name. You can repeat this parameter to query for
+multiple keys.
+
+timeout=<integer>
+Wait for the specified amount of time for results from remote nodes.
+
+expand_clientid=<boolean>
+If true, use name resolution to expand client addresses and other IDs.
+
+"/3/statistics/operations",
+"/3/statistics/summary/client",
+"/3/statistics/summary/drive",
+"/3/statistics/summary/heat",
+"/3/statistics/summary/protocol",
+"/3/statistics/summary/protocol-stats",
+"/3/statistics/summary/system",
