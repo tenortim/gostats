@@ -48,6 +48,17 @@ type Cluster struct {
 	client     *http.Client
 }
 
+// StatResult contains the information returned for a single stat key
+// when querying the OneFS statistics API
+type StatResult struct {
+	Devid       int     `json:"devid"`
+	ErrorString string  `json:"error"`
+	ErrorCode   int     `json:"error_code"`
+	Key         string  `json:"key"`
+	UnixTime    int     `json:"time"`
+	Value       float64 `json:"value"`
+}
+
 const authPath = "/session/1/session"
 const versionPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
@@ -129,7 +140,7 @@ type osAPImap struct {
 	apiversion APIVersion
 }
 
-const osapivermap = []osAPImap{
+var osapivermap = []osAPImap{
 	{"v8.1.1.", OneFS811},
 	{"v8.1.0.", OneFS81},
 	{"v8.0.1.", OneFS801},
@@ -173,9 +184,9 @@ func (c *Cluster) GetOSVersion() (string, error) {
 }
 
 // GetStats takes and array of statistics keys and returns and
-// array of JSON-formatted results
-func (c *Cluster) GetStats(stats []string) ([]string, error) {
-	results := make([]string, len(stats))
+// array of StatResult structs
+func (c *Cluster) GetStats(stats []string) ([][]StatResult, error) {
+	results := make([][]StatResult, len(stats))
 	for i, stat := range stats {
 		path := statsPath + "?degraded=true&devid=all&key=" + stat
 		resp, err := c.restGet(path)
@@ -183,9 +194,24 @@ func (c *Cluster) GetStats(stats []string) ([]string, error) {
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
-		results[i] = string(resp)
+		results[i], err = parseStatResult(resp)
+		// XXX -handle error here
+		if err != nil {
+			fmt.Printf("Unable to parse response %s - error %s\n", resp, err)
+		}
 	}
 	return results, nil
+}
+
+func parseStatResult(res []byte) ([]StatResult, error) {
+	sa := struct {
+		Stats []StatResult `json:"stats"`
+	}{}
+	err := json.Unmarshal(res, &sa)
+	if err != nil {
+		return nil, err
+	}
+	return sa.Stats, nil
 }
 
 // get REST response from the API
