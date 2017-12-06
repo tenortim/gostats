@@ -40,5 +40,4 @@ func main() {
 		log.Fatal(err)
 	}
 	//fmt.Printf("Config parsed\n%+v\n", conf)
-
 }
