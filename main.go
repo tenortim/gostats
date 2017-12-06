@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"timw/isilon/gostats/statssink"
 
 	"github.com/BurntSushi/toml"
 )
@@ -39,5 +40,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//fmt.Printf("Config parsed\n%+v\n", conf)
+	// Need to be able to parse multiple backends - hardcode for now
+	if conf.Global.Processor != "influxdb_plugin" {
+		log.Fatalf("Unrecognized backend plugin name: %q", conf.Global.Processor)
+	}
+	// This will be in the per-cluster code eventually
+	// Also will need to pull actual name from API
+	var ss = statssink.InfluxDBSink{
+		Cluster: conf.Cluster[0].Name,
+	}
+	err = ss.Init(conf.Global.ProcessorArgs)
+	if err != nil {
+		log.Fatalf("Unable to initialize InfluxDB plugin: %v", err)
+	}
 }

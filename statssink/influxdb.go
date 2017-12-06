@@ -1,14 +1,16 @@
 package statssink
 
 import (
+  "fmt"
   "log"
   "strconv"
+  "time"
   "timw/isilon/gostats/papistats"
   "github.com/influxdata/influxdb/client/v2"
 )
 
 type InfluxDBSink struct {
-  cluster string
+  Cluster string
   c client.Client
   bpConfig client.BatchPointsConfig
 }
@@ -34,22 +36,25 @@ func (s *InfluxDBSink) Init(a []string) error {
 }
 
 func (s *InfluxDBSink) WriteStats(stats []papistats.StatResult) error {
-  cluster_tags := map[string]string{"cluster": s.cluster}
-  node_tags := map[string]string{"cluster": s.cluster}
+  cluster_tags := map[string]string{"cluster": s.Cluster}
+  node_tags := map[string]string{"cluster": s.Cluster}
   bp, err := client.NewBatchPoints(s.bpConfig)
   if err != nil {
-    return fmt.Errof("Unable to create InfluxDB batch points - %v", err.Error())
+    return fmt.Errorf("Unable to create InfluxDB batch points - %v", err.Error())
   }
   for _, stat := range stats {
-    if stat.Devid = 0 {
-      tags := cluster_tags
+    var tags map[string]string
+    // Handle cluster vs node stats
+    if stat.Devid == 0 {
+      tags = cluster_tags
     } else {
       node_tags["node"] = strconv.Itoa(stat.Devid)
+      tags = node_tags
     }
     fields := map[string]interface{}{
       "value": stat.Value,
     }
-    pt, err := s.c.NewPoint(stat.Key, tags, fields, stat.UnixTime)
+    pt, err := client.NewPoint(stat.Key, tags, fields, time.Unix(stat.UnixTime, 0))
     if err != nil {
       log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
       continue

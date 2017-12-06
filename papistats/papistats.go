@@ -55,7 +55,7 @@ type StatResult struct {
 	ErrorString string  `json:"error"`
 	ErrorCode   int     `json:"error_code"`
 	Key         string  `json:"key"`
-	UnixTime    int     `json:"time"`
+	UnixTime    int64   `json:"time"`
 	Value       float64 `json:"value"`
 }
 
