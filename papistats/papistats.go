@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -29,7 +30,10 @@ const (
 	OneFS811
 )
 
-// AuthInfo provides username and password to Authenticate
+// MaxAPIPathLen is the limit on the length of an API request URL
+const MaxAPIPathLen = 8191
+
+// AuthInfo provides username and password to authenticate
 // against the OneFS API
 type AuthInfo struct {
 	Username string
@@ -49,14 +53,16 @@ type Cluster struct {
 }
 
 // StatResult contains the information returned for a single stat key
-// when querying the OneFS statistics API
+// when querying the OneFS statistics API.
+// The Value field can be a simple int/float, or it can be a dictionary
+// or an array of dictionaries (e.g. protostats results)
 type StatResult struct {
-	Devid       int     `json:"devid"`
-	ErrorString string  `json:"error"`
-	ErrorCode   int     `json:"error_code"`
-	Key         string  `json:"key"`
-	UnixTime    int64   `json:"time"`
-	Value       float64 `json:"value"`
+	Devid       int         `json:"devid"`
+	ErrorString string      `json:"error"`
+	ErrorCode   int         `json:"error_code"`
+	Key         string      `json:"key"`
+	UnixTime    int64       `json:"time"`
+	Value       interface{} `json:"value"`
 }
 
 const authPath = "/session/1/session"
@@ -183,22 +189,43 @@ func (c *Cluster) GetOSVersion() (string, error) {
 	return rel, nil
 }
 
-// GetStats takes and array of statistics keys and returns and
-// array of StatResult structs
-func (c *Cluster) GetStats(stats []string) ([][]StatResult, error) {
-	results := make([][]StatResult, len(stats))
+// GetStats takes an array of statistics keys and returns an
+// array of StatResult structures
+func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
+	var results []StatResult
+	var buffer bytes.Buffer
+
+	initialPath := statsPath + "?degraded=true&devid=all"
+	// length of key args
+	la := 0
+	// Need special case for short last get
+	ls := len(stats)
+	// max minus (initial string + slop)
+	maxlen := MaxAPIPathLen - (len(initialPath) + 100)
+	buffer.WriteString(initialPath)
 	for i, stat := range stats {
-		path := statsPath + "?degraded=true&devid=all&key=" + stat
-		resp, err := c.restGet(path)
+		// 5 == len("?key=")
+		if la+5+len(stat) < maxlen {
+			buffer.WriteString("&key=")
+			buffer.WriteString(stat)
+			if i != ls-1 {
+				continue
+			}
+		}
+		resp, err := c.restGet(buffer.String())
 		if err != nil {
+			log.Printf("failed to get stats: %v\n", err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
-		results[i], err = parseStatResult(resp)
+		// Debug
+		//fmt.Printf("%s\n", resp)
+		r, err := parseStatResult(resp)
 		// XXX -handle error here
 		if err != nil {
 			fmt.Printf("Unable to parse response %s - error %s\n", resp, err)
 		}
+		results = append(results, r...)
 	}
 	return results, nil
 }
