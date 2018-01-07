@@ -17,16 +17,21 @@ type InfluxDBSink struct {
 	bpConfig client.BatchPointsConfig
 }
 
+// types for the decoded fields and tags
+type ptFields map[string]interface{}
+type ptTags map[string]string
+
 // Init initializes an InfluxDBSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *InfluxDBSink) Init(a []string) error {
+func (s *InfluxDBSink) Init(args []string) error {
 	// args are host, port, database
-	if len(a) != 3 {
-		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 3", len(a))
+	if len(args) != 3 {
+		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 3", len(args))
 	}
-	url := "http://" + a[0] + ":" + a[1]
+	host, port, database := args[0], args[1], args[2]
+	url := "http://" + host + ":" + port
 	s.bpConfig = client.BatchPointsConfig{
-		Database:  a[2],
+		Database:  database,
 		Precision: "s",
 	}
 	c, err := client.NewHTTPClient(client.HTTPConfig{
@@ -41,76 +46,28 @@ func (s *InfluxDBSink) Init(a []string) error {
 
 // WriteStats takes an array of StatResults and writes them to InfluxDB
 func (s *InfluxDBSink) WriteStats(stats []papistats.StatResult) error {
-	clusterTags := map[string]string{"cluster": s.Cluster}
-	nodeTags := map[string]string{"cluster": s.Cluster}
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
 		return fmt.Errorf("Unable to create InfluxDB batch points - %v", err.Error())
 	}
 	for _, stat := range stats {
-		var tags map[string]string
 		var pts []*client.Point
-
-		// Handle cluster vs node stats
-		if stat.Devid == 0 {
-			tags = clusterTags
-		} else {
-			nodeTags["node"] = strconv.Itoa(stat.Devid)
-			tags = nodeTags
+		var fa []ptFields
+		var ta []ptTags
+		fa, ta, err = s.decodeStat(stat)
+		if err != nil {
+			// XXX handle errors
+			log.Panicf("Failed to decode stat %v: %s\n", stat, err)
 		}
-
-		switch val := stat.Value.(type) {
-		case float64:
-			fields := make(map[string]interface{})
-			fields["value"] = val
-			pt, err := client.NewPoint(stat.Key, tags, fields, time.Unix(stat.UnixTime, 0))
+		for i, f := range fa {
+			var pt *client.Point
+			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0))
 			if err != nil {
 				log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
 				continue
 			}
 			pts = append(pts, pt)
-		case string:
-			fields := make(map[string]interface{})
-			fields["value"] = val
-			pt, err := client.NewPoint(stat.Key, tags, fields, time.Unix(stat.UnixTime, 0))
-			if err != nil {
-				log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
-				continue
-			}
-			pts = append(pts, pt)
-		case []interface{}:
-			for _, vl := range val {
-				fields := make(map[string]interface{})
-				switch vv := vl.(type) {
-				case map[string]interface{}:
-					for km, vm := range vv {
-						fields[km] = vm
-					}
-				default:
-					fields["value"] = vv
-				}
-				pt, err := client.NewPoint(stat.Key, tags, fields, time.Unix(stat.UnixTime, 0))
-				if err != nil {
-					log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
-					continue
-				}
-				pts = append(pts, pt)
-			}
-		case map[string]interface{}:
-			fields := make(map[string]interface{})
-			for km, vm := range val {
-				fields[km] = vm
-			}
-			pt, err := client.NewPoint(stat.Key, tags, fields, time.Unix(stat.UnixTime, 0))
-			if err != nil {
-				log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
-				continue
-			}
-			pts = append(pts, pt)
-		default:
-			log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
 		}
-
 		bp.AddPoints(pts)
 	}
 	// write the batch
@@ -119,4 +76,57 @@ func (s *InfluxDBSink) WriteStats(stats []papistats.StatResult) error {
 		return fmt.Errorf("Failed to write batch of points - %v", err.Error())
 	}
 	return nil
+}
+
+func (s *InfluxDBSink) decodeStat(stat papistats.StatResult) ([]ptFields, []ptTags, error) {
+	var tags ptTags
+	clusterTags := ptTags{"cluster": s.Cluster}
+	nodeTags := ptTags{"cluster": s.Cluster}
+	var fa []ptFields
+	var ta []ptTags
+	// Handle cluster vs node stats
+	if stat.Devid == 0 {
+		tags = clusterTags
+	} else {
+		nodeTags["node"] = strconv.Itoa(stat.Devid)
+		tags = nodeTags
+	}
+
+	switch val := stat.Value.(type) {
+	case float64:
+		fields := make(ptFields)
+		fields["value"] = val
+		fa = append(fa, fields)
+		ta = append(ta, tags)
+	case string:
+		fields := make(ptFields)
+		fields["value"] = val
+		fa = append(fa, fields)
+		ta = append(ta, tags)
+	case []interface{}:
+		for _, vl := range val {
+			fields := make(ptFields)
+			switch vv := vl.(type) {
+			case map[string]interface{}:
+				for km, vm := range vv {
+					fields[km] = vm
+				}
+			default:
+				fields["value"] = vv
+			}
+			fa = append(fa, fields)
+			ta = append(ta, tags)
+		}
+	case map[string]interface{}:
+		fields := make(ptFields)
+		for km, vm := range val {
+			fields[km] = vm
+		}
+		fa = append(fa, fields)
+		ta = append(ta, tags)
+	default:
+		// XXX return error here
+		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
+	}
+	return fa, ta, nil
 }
