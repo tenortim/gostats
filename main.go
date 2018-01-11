@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"sync"
+	"time"
 	"timw/isilon/gostats/papistats"
 	"timw/isilon/gostats/statssink"
 
@@ -81,8 +83,21 @@ func main() {
 		stats = append(stats, stat)
 	}
 
-	// Connect to the cluster
-	cluster := conf.Cluster[0]
+	// start collecting from each defined cluster
+	var wg sync.WaitGroup
+	wg.Add(len(conf.Cluster))
+	for _, cl := range conf.Cluster {
+		go func(cl cluster) {
+			defer wg.Done()
+			statsloop(cl, stats)
+		}(cl)
+	}
+	wg.Wait()
+}
+
+func statsloop(cluster cluster, stats []string) {
+	var err error
+	// connect/authenticate
 	c := &papistats.Cluster{
 		AuthInfo: papistats.AuthInfo{
 			Username: cluster.Username,
@@ -93,17 +108,25 @@ func main() {
 		VerifySSL: cluster.SSLCheck,
 	}
 	if err = c.Authenticate(); err != nil {
-		log.Panicf("Authentication to cluster %q failed: %v", cluster.Name, err)
+		log.Printf("Authentication to cluster %q failed: %v", cluster.Name, err)
+		return
 	}
 
-	// Collect one set of stats
-	sr, err := c.GetStats(stats)
-	if err != nil {
-		log.Panicf("Failed to retrieve stats for cluster %q: %v\n", cluster.Name, err)
-	}
+	// loop collecting and pushing stats
+	for {
+		nextTime := time.Now().Add(30 * time.Second)
+		// Collect one set of stats
+		sr, err := c.GetStats(stats)
+		if err != nil {
+			log.Printf("Failed to retrieve stats for cluster %q: %v\n", cluster.Name, err)
+			return
+		}
 
-	err = ss.WriteStats(sr)
-	if err != nil {
-		log.Panicf("Failed to write stats to database: %s", err)
+		err = ss.WriteStats(sr)
+		if err != nil {
+			log.Printf("Failed to write stats to database: %s", err)
+			return
+		}
+		time.Sleep(nextTime.Sub(time.Now()))
 	}
 }
