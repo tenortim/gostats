@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/net/publicsuffix"
 )
@@ -50,6 +51,7 @@ type Cluster struct {
 	APIVersion APIVersion
 	baseURL    string
 	client     *http.Client
+	reauthTime time.Time
 }
 
 // StatResult contains the information returned for a single stat key
@@ -131,11 +133,29 @@ func (c *Cluster) Authenticate() error {
 		return err
 	}
 	defer resp.Body.Close()
-
-	// 200 is success
+	// 200(StatusCreated) is success
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("Authenticate: auth failed - %s", resp.Status)
 	}
+	// parse out time limit so we can reauth when necessary
+	dec := json.NewDecoder(resp.Body)
+	var ar map[string]interface{}
+	err = dec.Decode(&ar)
+	if err != nil {
+		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
+	}
+	var timeout int
+	ta, ok := ar["timeout_absolute"]
+	if ok {
+		timeout = int(ta.(float64))
+	} else {
+		// This shouldn't happen, but just set it to a sane default
+		timeout = 14400
+	}
+	if timeout > 60 {
+		timeout -= 60 // Give a minute's grace to the reauth timer
+	}
+	c.reauthTime = time.Now().Add(time.Duration(timeout) * time.Second)
 
 	return nil
 }
@@ -243,6 +263,12 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 
 // get REST response from the API
 func (c *Cluster) restGet(endpoint string) ([]byte, error) {
+	var err error
+	if time.Now().After(c.reauthTime) {
+		if err = c.Authenticate(); err != nil {
+			return nil, err
+		}
+	}
 	u, err := url.Parse(c.baseURL + endpoint)
 	if err != nil {
 		return nil, err
