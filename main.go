@@ -44,20 +44,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Need to be able to parse multiple backends - hardcode for now
-	if conf.Global.Processor != "influxdb_plugin" {
-		log.Fatalf("Unrecognized backend plugin name: %q", conf.Global.Processor)
-	}
-	// This will be in the per-cluster code eventually
-	// Also will need to pull actual name from API
-	var ss = statssink.InfluxDBSink{
-		Cluster: conf.Cluster[0].Name,
-	}
-	err = ss.Init(conf.Global.ProcessorArgs)
-	if err != nil {
-		log.Fatalf("Unable to initialize InfluxDB plugin: %v", err)
-	}
-
 	// Determine which stats to poll
 	statgroups := make(map[string][]string)
 	for _, sg := range conf.StatGroup {
@@ -89,13 +75,13 @@ func main() {
 	for _, cl := range conf.Cluster {
 		go func(cl cluster) {
 			defer wg.Done()
-			statsloop(cl, stats)
+			statsloop(cl, conf.Global, stats)
 		}(cl)
 	}
 	wg.Wait()
 }
 
-func statsloop(cluster cluster, stats []string) {
+func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	var err error
 	// connect/authenticate
 	c := &papistats.Cluster{
@@ -109,6 +95,21 @@ func statsloop(cluster cluster, stats []string) {
 	}
 	if err = c.Authenticate(); err != nil {
 		log.Printf("Authentication to cluster %q failed: %v", cluster.Name, err)
+		return
+	}
+
+	// Need to be able to parse multiple backends - hardcode for now
+	if gc.Processor != "influxdb_plugin" {
+		log.Printf("Unrecognized backend plugin name: %q", gc.Processor)
+		return
+	}
+	// XXX - need to pull actual name from API
+	var ss = statssink.InfluxDBSink{
+		Cluster: cluster.Name,
+	}
+	err = ss.Init(gc.ProcessorArgs)
+	if err != nil {
+		log.Printf("Unable to initialize InfluxDB plugin: %v", err)
 		return
 	}
 
