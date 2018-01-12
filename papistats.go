@@ -238,11 +238,12 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 			return nil, err
 		}
 		// Debug
-		//fmt.Printf("%s\n", resp)
+		// log.Debugf("stats get response = %s", resp)
 		r, err := parseStatResult(resp)
 		// XXX -handle error here
 		if err != nil {
-			fmt.Printf("Unable to parse response %s - error %s\n", resp, err)
+			log.Errorf("Unable to parse response %s - error %s\n", resp, err)
+			return nil, err
 		}
 		results = append(results, r...)
 	}

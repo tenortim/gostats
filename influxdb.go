@@ -55,7 +55,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		fa, ta, err = s.decodeStat(stat)
 		if err != nil {
 			// XXX handle errors
-			log.Panicf("Failed to decode stat %v: %s\n", stat, err)
+			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
 		}
 		for i, f := range fa {
 			var pt *client.Point
