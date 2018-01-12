@@ -1,11 +1,10 @@
-package statssink
+package main
 
 import (
 	"fmt"
 	"log"
 	"strconv"
 	"time"
-	"timw/isilon/gostats/papistats"
 
 	"github.com/influxdata/influxdb/client/v2"
 )
@@ -45,7 +44,7 @@ func (s *InfluxDBSink) Init(args []string) error {
 }
 
 // WriteStats takes an array of StatResults and writes them to InfluxDB
-func (s *InfluxDBSink) WriteStats(stats []papistats.StatResult) error {
+func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
 		return fmt.Errorf("Unable to create InfluxDB batch points - %v", err.Error())
@@ -78,7 +77,7 @@ func (s *InfluxDBSink) WriteStats(stats []papistats.StatResult) error {
 	return nil
 }
 
-func (s *InfluxDBSink) decodeStat(stat papistats.StatResult) ([]ptFields, []ptTags, error) {
+func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error) {
 	var tags ptTags
 	clusterTags := ptTags{"cluster": s.Cluster}
 	nodeTags := ptTags{"cluster": s.Cluster}

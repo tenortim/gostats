@@ -1,4 +1,4 @@
-package papistats
+package main
 
 import (
 	"bytes"

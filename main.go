@@ -4,8 +4,6 @@ import (
 	"log"
 	"sync"
 	"time"
-	"timw/isilon/gostats/papistats"
-	"timw/isilon/gostats/statssink"
 
 	"github.com/BurntSushi/toml"
 )
@@ -84,8 +82,8 @@ func main() {
 func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	var err error
 	// connect/authenticate
-	c := &papistats.Cluster{
-		AuthInfo: papistats.AuthInfo{
+	c := &Cluster{
+		AuthInfo: AuthInfo{
 			Username: cluster.Username,
 			Password: cluster.Password,
 		},
@@ -104,7 +102,7 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		return
 	}
 	// XXX - need to pull actual name from API
-	var ss = statssink.InfluxDBSink{
+	var ss = InfluxDBSink{
 		Cluster: cluster.Name,
 	}
 	err = ss.Init(gc.ProcessorArgs)
