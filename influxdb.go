@@ -146,6 +146,7 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		ta = append(ta, tags)
 	default:
 		// XXX return error here
+		log.Errorf("Unable to decode stat %+v", stat)
 		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
 	}
 	return fa, ta, nil
