@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -234,7 +233,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		}
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
-			log.Printf("failed to get stats: %v\n", err)
+			log.Errorf("failed to get stats: %v\n", err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}

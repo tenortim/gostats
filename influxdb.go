@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -62,7 +61,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 			var pt *client.Point
 			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0))
 			if err != nil {
-				log.Printf("failed to create point %q:%v", stat.Key, stat.Value)
+				log.Warningf("failed to create point %q:%v", stat.Key, stat.Value)
 				continue
 			}
 			pts = append(pts, pt)

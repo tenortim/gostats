@@ -1,11 +1,13 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	logging "github.com/op/go-logging"
 )
 
 type tomlConfig struct {
@@ -35,12 +37,33 @@ type statgroup struct {
 	Stats       []string
 }
 
+var log = logging.MustGetLogger("gostats")
+
 func main() {
+	// XXX - make log file configurable
+	const logFilename = "./gostats.log"
+
+	// set up logging
+	f, err := os.OpenFile(logFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gostats: unable to open log file for output - %s", err)
+		os.Exit(2)
+	}
+	backend := logging.NewLogBackend(f, "", 0)
+	var format = logging.MustStringFormatter(
+		`%{time:15:04:05.000} %{shortfunc} %{level:.1s} %{message}`,
+	)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	backendLeveled := logging.AddModuleLevel(backendFormatter)
+	backendLeveled.SetLevel(logging.INFO, "")
+	logging.SetBackend(backendLeveled)
+
 	var conf tomlConfig
-	_, err := toml.DecodeFile("idic.toml", &conf)
+	_, err = toml.DecodeFile("idic.toml", &conf)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Info("Successfully read config file")
 
 	// Determine which stats to poll
 	statgroups := make(map[string][]string)
@@ -51,7 +74,7 @@ func main() {
 	asg := []string{}
 	for _, group := range conf.Global.ActiveStatGroups {
 		if _, ok := statgroups[group]; !ok {
-			log.Printf("Active stat group %q not found - removing\n", group)
+			log.Warningf("Active stat group %q not found - removing\n", group)
 			continue
 		}
 		asg = append(asg, group)
@@ -72,6 +95,7 @@ func main() {
 	wg.Add(len(conf.Cluster))
 	for _, cl := range conf.Cluster {
 		go func(cl cluster) {
+			log.Infof("starting collect for cluster %s", cl.Name)
 			defer wg.Done()
 			statsloop(cl, conf.Global, stats)
 		}(cl)
@@ -92,13 +116,13 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		VerifySSL: cluster.SSLCheck,
 	}
 	if err = c.Authenticate(); err != nil {
-		log.Printf("Authentication to cluster %q failed: %v", cluster.Name, err)
+		log.Errorf("Authentication to cluster %q failed: %v", cluster.Name, err)
 		return
 	}
 
 	// Need to be able to parse multiple backends - hardcode for now
 	if gc.Processor != "influxdb_plugin" {
-		log.Printf("Unrecognized backend plugin name: %q", gc.Processor)
+		log.Errorf("Unrecognized backend plugin name: %q", gc.Processor)
 		return
 	}
 	// XXX - need to pull actual name from API
@@ -107,7 +131,7 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	}
 	err = ss.Init(gc.ProcessorArgs)
 	if err != nil {
-		log.Printf("Unable to initialize InfluxDB plugin: %v", err)
+		log.Errorf("Unable to initialize InfluxDB plugin: %v", err)
 		return
 	}
 
@@ -117,13 +141,13 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		// Collect one set of stats
 		sr, err := c.GetStats(stats)
 		if err != nil {
-			log.Printf("Failed to retrieve stats for cluster %q: %v\n", cluster.Name, err)
+			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", cluster.Name, err)
 			return
 		}
 
 		err = ss.WriteStats(sr)
 		if err != nil {
-			log.Printf("Failed to write stats to database: %s", err)
+			log.Errorf("Failed to write stats to database: %s", err)
 			return
 		}
 		time.Sleep(nextTime.Sub(time.Now()))
