@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -285,6 +286,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 			log.Errorf("restGet encountered url error")
 			if nerr, ok := uerr.Err.(*net.OpError); ok {
 				log.Errorf("restGet got net OpError %#v", nerr)
+				if oerr, ok := nerr.Err.(*os.SyscallError); ok {
+					log.Errorf("restGet got os SyscallError %#v", oerr)
+				}
 			}
 		}
 		if strings.HasSuffix(err.Error(), "connection refused") {
