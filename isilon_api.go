@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/publicsuffix"
@@ -288,6 +289,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 				log.Errorf("restGet got net OpError %#v", nerr)
 				if oerr, ok := nerr.Err.(*os.SyscallError); ok {
 					log.Errorf("restGet got os SyscallError %#v", oerr)
+					if oerr.Err == syscall.ECONNREFUSED {
+						log.Errorf("restGet got ECONNREFUSED")
+					}
 				}
 			}
 		}
