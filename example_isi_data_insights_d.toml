@@ -47,10 +47,9 @@ active_stat_groups = [
 # SSL certificate should be verified. If it is omitted then the default is
 # False (i.e. don't verify SSL cert).
 [[cluster]]
-name = "demo"
+hostname = "demo.cluster.com"
 username = "root"
 password = "a"
-address = "demo.cluster.com"
 verify-ssl = true
 
 # Definitions of the various groups of statistics to collect
@@ -116,7 +115,7 @@ stats = [
     "cluster.node.count.all",
     "cluster.node.count.down",
 ]
- 
+
 [[statgroup]]
 name = "ifs_space_stats"
 update_interval = "*"
@@ -139,7 +138,7 @@ stats = [
     "ifs.ops.in.rate",
     "ifs.ops.out.rate",
 ]
- 
+
 [[statgroup]]
 name = "node_load_stats"
 update_interval = "*"
@@ -153,7 +152,7 @@ stats = [
     "node.memory.cache",
     "node.open.files",
 ]
- 
+
 [[statgroup]]
 name = "node_disk_stats"
 update_interval = "*"

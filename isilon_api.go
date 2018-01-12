@@ -44,13 +44,14 @@ type AuthInfo struct {
 // cluster via the OneFS API
 type Cluster struct {
 	AuthInfo
-	Hostname   string
-	Port       int
-	VerifySSL  bool
-	APIVersion APIVersion
-	baseURL    string
-	client     *http.Client
-	reauthTime time.Time
+	Hostname    string
+	Port        int
+	VerifySSL   bool
+	OSVersion   string
+	ClusterName string
+	baseURL     string
+	client      *http.Client
+	reauthTime  time.Time
 }
 
 // StatResult contains the information returned for a single stat key
@@ -67,7 +68,7 @@ type StatResult struct {
 }
 
 const authPath = "/session/1/session"
-const versionPath = "/platform/1/cluster/config"
+const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
 
 // Set up Client etc.
@@ -103,13 +104,9 @@ func (c *Cluster) initialize() error {
 	return nil
 }
 
-// Authenticate establishes the initial connection to the cluster
-// and uses the provided authentication information to pull and
+// Authenticate uses the provided authentication information to obtain and
 // store a session cookie
 func (c *Cluster) Authenticate() error {
-	if err := c.initialize(); err != nil {
-		return err
-	}
 	am := struct {
 		Username string   `json:"username"`
 		Password string   `json:"password"`
@@ -127,6 +124,7 @@ func (c *Cluster) Authenticate() error {
 	if err != nil {
 		return err
 	}
+	// POST our authentication request to the API
 	resp, err := c.client.Post(u.String(), "application/json", bytes.NewBuffer(b))
 	if err != nil {
 		return err
@@ -149,6 +147,7 @@ func (c *Cluster) Authenticate() error {
 		timeout = int(ta.(float64))
 	} else {
 		// This shouldn't happen, but just set it to a sane default
+		log.Warning("authentication API did not return timeout value, using default")
 		timeout = 14400
 	}
 	if timeout > 60 {
@@ -159,53 +158,43 @@ func (c *Cluster) Authenticate() error {
 	return nil
 }
 
-// Handle mapping OneFS version to API version
-type osAPImap struct {
-	osprefix   string
-	apiversion APIVersion
-}
-
-var osapivermap = []osAPImap{
-	{"v8.1.1.", OneFS811},
-	{"v8.1.0.", OneFS81},
-	{"v8.0.1.", OneFS801},
-	{"v8.0.0.", OneFS80},
-	{"v7.2.1.", OneFS721},
-	{"v7.2.0.", OneFS72},
-}
-
-// GetAPIVersion finds and populates the API version for cluster
-func (c *Cluster) GetAPIVersion() error {
-	osversion, err := c.GetOSVersion()
+// GetClusterConfig pulls information from the cluster config API
+// endpoint, including the actual cluster name
+func (c *Cluster) GetClusterConfig() error {
+	var v interface{}
+	resp, err := c.restGet(configPath)
 	if err != nil {
 		return err
 	}
-	for _, a := range osapivermap {
-		if strings.HasPrefix(osversion, a.osprefix) {
-			c.APIVersion = a.apiversion
-			return nil
-		}
-	}
-	return fmt.Errorf("Unable to find API version matching %s", osversion)
-}
-
-// GetOSVersion finds and returns the OneFS version from cluster
-func (c *Cluster) GetOSVersion() (string, error) {
-	var v interface{}
-	resp, err := c.restGet(versionPath)
-	if err != nil {
-		return "", err
-	}
 	err = json.Unmarshal(resp, &v)
 	if err != nil {
-		return "", err
+		return err
 	}
 	m := v.(map[string]interface{})
 	version := m["onefs_version"]
 	r := version.(map[string]interface{})
-	release := r["release"]
+	release := r["version"]
 	rel := release.(string)
-	return rel, nil
+	c.OSVersion = rel
+	c.ClusterName = strings.ToLower(m["name"].(string))
+	return nil
+}
+
+// Connect establishes the initial network connection to the cluster,
+// calls Authenticate to grab a session cookie, and then pulls the
+// cluster config info to get the real cluster name
+func (c *Cluster) Connect() error {
+	var err error
+	if err = c.initialize(); err != nil {
+		return err
+	}
+	if err = c.Authenticate(); err != nil {
+		return err
+	}
+	if err = c.GetClusterConfig(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetStats takes an array of statistics keys and returns an

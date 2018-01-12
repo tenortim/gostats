@@ -25,10 +25,9 @@ type globalConfig struct {
 }
 
 type cluster struct {
-	Name     string
+	Hostname string
 	Username string
 	Password string
-	Address  string
 	SSLCheck bool `toml:"verify-ssl"`
 }
 
@@ -118,7 +117,7 @@ func main() {
 	wg.Add(len(conf.Cluster))
 	for _, cl := range conf.Cluster {
 		go func(cl cluster) {
-			log.Infof("starting collect for cluster %s", cl.Name)
+			log.Infof("starting collect for cluster %s", cl.Hostname)
 			defer wg.Done()
 			statsloop(cl, conf.Global, stats)
 		}(cl)
@@ -150,12 +149,12 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 			Username: cluster.Username,
 			Password: cluster.Password,
 		},
-		Hostname:  cluster.Address,
+		Hostname:  cluster.Hostname,
 		Port:      8080,
 		VerifySSL: cluster.SSLCheck,
 	}
-	if err = c.Authenticate(); err != nil {
-		log.Errorf("Authentication to cluster %q failed: %v", cluster.Name, err)
+	if err = c.Connect(); err != nil {
+		log.Errorf("Connection to cluster %q failed: %v", c.Hostname, err)
 		return
 	}
 
@@ -166,7 +165,7 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	}
 	// XXX - need to pull actual name from API
 	var ss = InfluxDBSink{
-		Cluster: cluster.Name,
+		Cluster: c.ClusterName,
 	}
 	err = ss.Init(gc.ProcessorArgs)
 	if err != nil {
@@ -180,7 +179,7 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		// Collect one set of stats
 		sr, err := c.GetStats(stats)
 		if err != nil {
-			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", cluster.Name, err)
+			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", c.ClusterName, err)
 			return
 		}
 
