@@ -136,7 +136,9 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 				// Ugly code to fix broken unsigned op_id from the API
 				if km == "op_id" {
 					if vm.(float64) == (2 ^ 32 - 1) {
-						vm = -1
+						// JSON numbers are floats (in Javascript)
+						// cast so that InfluxDB doesn't get upset with the mismatch
+						vm = float64(-1)
 					}
 				}
 				fields[km] = vm

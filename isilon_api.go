@@ -107,6 +107,7 @@ func (c *Cluster) initialize() error {
 // Authenticate uses the provided authentication information to obtain and
 // store a session cookie
 func (c *Cluster) Authenticate() error {
+	var err error
 	am := struct {
 		Username string   `json:"username"`
 		Password string   `json:"password"`
@@ -125,9 +126,23 @@ func (c *Cluster) Authenticate() error {
 		return err
 	}
 	// POST our authentication request to the API
-	resp, err := c.client.Post(u.String(), "application/json", bytes.NewBuffer(b))
+	// This is our first connection so we'll retry here in the hope that if
+	// we can't connect to one node, another may be responsive
+	const maxRetries = 10
+	const retryTime = 10 // seconds
+	var resp *http.Response
+	for i := 1; i <= maxRetries; i++ {
+		resp, err = c.client.Post(u.String(), "application/json", bytes.NewBuffer(b))
+		if err == nil {
+			break
+		}
+		retrySecs := i * retryTime
+		log.Error(err)
+		log.Errorf("Retrying in %d seconds", retrySecs)
+		time.Sleep(time.Duration(retrySecs) * time.Second)
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("Max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
 	}
 	defer resp.Body.Close()
 	// 200(StatusCreated) is success
