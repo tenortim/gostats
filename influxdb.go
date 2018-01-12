@@ -144,6 +144,11 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		}
 		fa = append(fa, fields)
 		ta = append(ta, tags)
+	case nil:
+		// It seems that the stats API can return nil values where
+		// ErrorString is set, but ErrorCode is 0
+		// Drop these, but log them if log level is high enough
+		log.Debugf("Unable to decode stat %s due to nil value, skipping", stat.Key)
 	default:
 		// XXX return error here
 		log.Errorf("Unable to decode stat %+v", stat)
