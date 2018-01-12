@@ -177,17 +177,21 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	for {
 		nextTime := time.Now().Add(30 * time.Second)
 		// Collect one set of stats
+		log.Infof("cluster %s start collecting stats", c.ClusterName)
 		sr, err := c.GetStats(stats)
 		if err != nil {
 			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", c.ClusterName, err)
 			return
 		}
 
+		log.Infof("cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
 		if err != nil {
 			log.Errorf("Failed to write stats to database: %s", err)
 			return
 		}
-		time.Sleep(nextTime.Sub(time.Now()))
+		sleepTime := nextTime.Sub(time.Now())
+		log.Infof("cluster %s sleeping for %v", c.ClusterName, sleepTime)
+		time.Sleep(sleepTime)
 	}
 }
