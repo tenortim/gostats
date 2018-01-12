@@ -76,18 +76,27 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 	return nil
 }
 
+// helper function
+func ptmapCopy(tags ptTags) ptTags {
+	copy := ptTags{}
+	for k, v := range tags {
+		copy[k] = v
+	}
+	return copy
+}
+
 func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error) {
-	var tags ptTags
+	var baseTags ptTags
 	clusterTags := ptTags{"cluster": s.Cluster}
 	nodeTags := ptTags{"cluster": s.Cluster}
 	var fa []ptFields
 	var ta []ptTags
 	// Handle cluster vs node stats
 	if stat.Devid == 0 {
-		tags = clusterTags
+		baseTags = clusterTags
 	} else {
 		nodeTags["node"] = strconv.Itoa(stat.Devid)
-		tags = nodeTags
+		baseTags = nodeTags
 	}
 
 	switch val := stat.Value.(type) {
@@ -95,15 +104,16 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		fields := make(ptFields)
 		fields["value"] = val
 		fa = append(fa, fields)
-		ta = append(ta, tags)
+		ta = append(ta, baseTags)
 	case string:
 		fields := make(ptFields)
 		fields["value"] = val
 		fa = append(fa, fields)
-		ta = append(ta, tags)
+		ta = append(ta, baseTags)
 	case []interface{}:
 		for _, vl := range val {
 			fields := make(ptFields)
+			tags := ptmapCopy(baseTags)
 			switch vv := vl.(type) {
 			case map[string]interface{}:
 				for km, vm := range vv {
@@ -128,6 +138,7 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		}
 	case map[string]interface{}:
 		fields := make(ptFields)
+		tags := ptmapCopy(baseTags)
 		for km, vm := range val {
 			// op_name, class_name are tags(indexed), not fields
 			if km == "op_name" || km == "class_name" {
