@@ -74,6 +74,9 @@ const authPath = "/session/1/session"
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
 
+// Retry parameter(s) for connection failures
+const maxRetries = 8
+
 // Set up Client etc.
 func (c *Cluster) initialize() error {
 	if c.client != nil {
@@ -131,18 +134,18 @@ func (c *Cluster) Authenticate() error {
 	// POST our authentication request to the API
 	// This is our first connection so we'll retry here in the hope that if
 	// we can't connect to one node, another may be responsive
-	const maxRetries = 10
-	const retryTime = 10 // seconds
+
 	var resp *http.Response
+	retrySecs := 1
 	for i := 1; i <= maxRetries; i++ {
 		resp, err = c.client.Post(u.String(), "application/json", bytes.NewBuffer(b))
 		if err == nil {
 			break
 		}
-		retrySecs := i * retryTime
 		log.Error(err)
 		log.Errorf("Retrying in %d seconds", retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
+		retrySecs *= 2
 	}
 	if err != nil {
 		return fmt.Errorf("Max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
@@ -240,7 +243,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		}
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
-			log.Errorf("failed to get stats: %v\n", err)
+			// log.Errorf("failed to get stats: %v\n", err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
@@ -268,9 +271,24 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 	return sa.Stats, nil
 }
 
+// helper function
+func isConnectionRefused(err error) bool {
+	if uerr, ok := err.(*url.Error); ok {
+		if nerr, ok := uerr.Err.(*net.OpError); ok {
+			if oerr, ok := nerr.Err.(*os.SyscallError); ok {
+				if oerr.Err == syscall.ECONNREFUSED {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // get REST response from the API
 func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var err error
+	var resp *http.Response
 	if time.Now().After(c.reauthTime) {
 		if err = c.Authenticate(); err != nil {
 			return nil, err
@@ -280,24 +298,20 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.Get(u.String())
+	retrySecs := 1
+	for i := 1; i < maxRetries; i++ {
+		resp, err = c.client.Get(u.String())
+		if err == nil {
+			break
+		}
+		if !isConnectionRefused(err) {
+			return nil, err
+		}
+		log.Errorf("Connection to %s refused, retrying in %d seconds", c.Hostname, retrySecs)
+		time.Sleep(time.Duration(retrySecs) * time.Second)
+		retrySecs *= 2
+	}
 	if err != nil {
-		// XXX handle retries here
-		if uerr, ok := err.(*url.Error); ok {
-			log.Errorf("restGet encountered url error")
-			if nerr, ok := uerr.Err.(*net.OpError); ok {
-				log.Errorf("restGet got net OpError %#v", nerr)
-				if oerr, ok := nerr.Err.(*os.SyscallError); ok {
-					log.Errorf("restGet got os SyscallError %#v", oerr)
-					if oerr.Err == syscall.ECONNREFUSED {
-						log.Errorf("restGet got ECONNREFUSED")
-					}
-				}
-			}
-		}
-		if strings.HasSuffix(err.Error(), "connection refused") {
-			log.Errorf("restGet encountered connection refused")
-		}
 		return nil, err
 	}
 	defer resp.Body.Close()
