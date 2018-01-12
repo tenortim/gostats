@@ -107,7 +107,18 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 			switch vv := vl.(type) {
 			case map[string]interface{}:
 				for km, vm := range vv {
-					fields[km] = vm
+					// op_name, class_name are tags(indexed), not fields
+					if km == "op_name" || km == "class_name" {
+						tags[km] = vm.(string)
+					} else {
+						// Ugly code to fix broken unsigned op_id from the API
+						if km == "op_id" {
+							if vm.(int64) == (2 ^ 32 - 1) {
+								vm = -1
+							}
+						}
+						fields[km] = vm
+					}
 				}
 			default:
 				fields["value"] = vv
