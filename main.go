@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"sync"
@@ -39,27 +40,41 @@ type statgroup struct {
 
 var log = logging.MustGetLogger("gostats")
 
+type loglevel logging.Level
+
+var logFileName = flag.String("logfile", "./gostats.log", "path name to log file")
+var logLevel = loglevel(logging.NOTICE)
+
+func (l *loglevel) String() string {
+	var level logging.Level
+	level = logging.Level(*l)
+	return level.String()
+}
+
+func (l *loglevel) Set(value string) error {
+	level, err := logging.LogLevel(value)
+	if err != nil {
+		return err
+	}
+	*l = loglevel(level)
+	return nil
+}
+
+func init() {
+	// tie log-level variable into flag parsing
+	flag.Var(&logLevel, "loglevel", "default log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG]")
+}
+
 func main() {
-	// XXX - make log file configurable
-	const logFilename = "./gostats.log"
+	// parse command line
+	flag.Parse()
 
 	// set up logging
-	f, err := os.OpenFile(logFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "gostats: unable to open log file for output - %s", err)
-		os.Exit(2)
-	}
-	backend := logging.NewLogBackend(f, "", 0)
-	var format = logging.MustStringFormatter(
-		`%{time:15:04:05.000} %{shortfunc} %{level:.1s} %{message}`,
-	)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
-	backendLeveled := logging.AddModuleLevel(backendFormatter)
-	backendLeveled.SetLevel(logging.INFO, "")
-	logging.SetBackend(backendLeveled)
+	setupLogging()
 
+	// read in our config
 	var conf tomlConfig
-	_, err = toml.DecodeFile("idic.toml", &conf)
+	_, err := toml.DecodeFile("idic.toml", &conf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,6 +116,22 @@ func main() {
 		}(cl)
 	}
 	wg.Wait()
+}
+
+func setupLogging() {
+	f, err := os.OpenFile(*logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gostats: unable to open log file %s for output - %s", *logFileName, err)
+		os.Exit(2)
+	}
+	backend := logging.NewLogBackend(f, "", 0)
+	var format = logging.MustStringFormatter(
+		`%{time:2006-01-02T15:04:05Z07:00} %{shortfile} %{level} %{message}`,
+	)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	backendLeveled := logging.AddModuleLevel(backendFormatter)
+	backendLeveled.SetLevel(logging.Level(logLevel), "")
+	logging.SetBackend(backendLeveled)
 }
 
 func statsloop(cluster cluster, gc globalConfig, stats []string) {
