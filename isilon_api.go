@@ -281,8 +281,11 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	resp, err := c.client.Get(u.String())
 	if err != nil {
 		// XXX handle retries here
-		if nerr, ok := err.(net.Error); ok {
-			log.Errorf("restGet encountered network error %#v", nerr)
+		if uerr, ok := err.(*url.Error); ok {
+			log.Errorf("restGet encountered url error")
+			if nerr, ok := uerr.Err.(*net.OpError); ok {
+				log.Errorf("restGet got net OpError %#v", nerr)
+			}
 		}
 		if strings.HasSuffix(err.Error(), "connection refused") {
 			log.Errorf("restGet encountered connection refused")
