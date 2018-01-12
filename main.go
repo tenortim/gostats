@@ -42,8 +42,9 @@ var log = logging.MustGetLogger("gostats")
 
 type loglevel logging.Level
 
-var logFileName = flag.String("logfile", "./gostats.log", "path name to log file")
+var logFileName = flag.String("logfile", "./gostats.log", "pathname of log file")
 var logLevel = loglevel(logging.NOTICE)
+var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
 
 func (l *loglevel) String() string {
 	var level logging.Level
@@ -72,15 +73,21 @@ func main() {
 	// set up logging
 	setupLogging()
 
+	// announce ourselves
+	log.Notice("Starting gostats")
+
 	// read in our config
+	log.Infof("Reading config file %s", *configFileName)
 	var conf tomlConfig
-	_, err := toml.DecodeFile("idic.toml", &conf)
+	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
 		log.Fatal(err)
 	}
 	log.Info("Successfully read config file")
 
 	// Determine which stats to poll
+	log.Info("Parsing stat groups and stats")
 	statgroups := make(map[string][]string)
 	for _, sg := range conf.StatGroup {
 		statgroups[sg.Name] = sg.Stats
@@ -104,6 +111,7 @@ func main() {
 	for stat := range allstats {
 		stats = append(stats, stat)
 	}
+	log.Infof("Parsed stats; %d stats will be collected", len(stats))
 
 	// start collecting from each defined cluster
 	var wg sync.WaitGroup
