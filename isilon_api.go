@@ -19,20 +19,6 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-// APIVersion is the revision OneFS API
-type APIVersion int
-
-// Versions of the OneFS API
-const (
-	UnknownVersion APIVersion = iota
-	OneFS72
-	OneFS721
-	OneFS80
-	OneFS801
-	OneFS81
-	OneFS811
-)
-
 // MaxAPIPathLen is the limit on the length of an API request URL
 const MaxAPIPathLen = 8191
 
@@ -83,13 +69,13 @@ func (c *Cluster) initialize() error {
 		return nil
 	}
 	if c.Username == "" {
-		return fmt.Errorf("Authenticate: Username must be set")
+		return fmt.Errorf("Username must be set")
 	}
 	if c.Password == "" {
-		return fmt.Errorf("Authenticate: Password must be set")
+		return fmt.Errorf("Password must be set")
 	}
 	if c.Hostname == "" {
-		return fmt.Errorf("Authenticate: Hostname must be set")
+		return fmt.Errorf("Hostname must be set")
 	}
 	if c.Port == 0 {
 		c.Port = 8080
@@ -142,8 +128,8 @@ func (c *Cluster) Authenticate() error {
 		if err == nil {
 			break
 		}
-		log.Error(err)
-		log.Errorf("Retrying in %d seconds", retrySecs)
+		log.Warning(err)
+		log.Warningf("Retrying in %d seconds", retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
 	}

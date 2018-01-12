@@ -59,7 +59,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		}
 		for i, f := range fa {
 			var pt *client.Point
-			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0))
+			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
 			if err != nil {
 				log.Warningf("failed to create point %q:%v", stat.Key, stat.Value)
 				continue
