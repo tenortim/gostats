@@ -124,7 +124,7 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 						// Ugly code to fix broken unsigned op_id from the API
 						if km == "op_id" {
 							if vm.(float64) == (2 ^ 32 - 1) {
-								vm = -1
+								vm = float64(-1)
 							}
 						}
 						fields[km] = vm

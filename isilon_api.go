@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -279,7 +280,10 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 	resp, err := c.client.Get(u.String())
 	if err != nil {
-		// XXX handle re-auth here
+		// XXX handle retries here
+		if oerr, ok := err.(*net.OpError); ok {
+			log.Errorf("restGet encountered network error %#v", oerr)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
