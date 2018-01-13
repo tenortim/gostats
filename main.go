@@ -174,19 +174,30 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	}
 
 	// loop collecting and pushing stats
+	readFailCount := 0
+	const readFailLimit = 30
 	for {
 		nextTime := time.Now().Add(30 * time.Second)
 		// Collect one set of stats
 		log.Infof("cluster %s start collecting stats", c.ClusterName)
 		sr, err := c.GetStats(stats)
 		if err != nil {
+			readFailCount++
+			if readFailCount >= readFailLimit {
+				log.Errorf("Unable to collect stats from %s after %d tries, giving up", c.ClusterName, readFailLimit)
+				return
+			}
 			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", c.ClusterName, err)
-			return
+			log.Errorf("Retry #%d in 1 minute", readFailCount)
+			time.Sleep(time.Minute)
+			continue
 		}
+		readFailCount = 0
 
 		log.Infof("cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
 		if err != nil {
+			// XXX maybe implement backoff here?
 			log.Errorf("Failed to write stats to database: %s", err)
 			return
 		}

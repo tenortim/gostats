@@ -290,6 +290,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		if err == nil {
 			break
 		}
+		// XXX - consider adding more cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
 			return nil, err
 		}
