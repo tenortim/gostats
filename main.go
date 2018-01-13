@@ -46,8 +46,7 @@ var logLevel = loglevel(logging.NOTICE)
 var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
 
 func (l *loglevel) String() string {
-	var level logging.Level
-	level = logging.Level(*l)
+	level := logging.Level(*l)
 	return level.String()
 }
 
@@ -143,6 +142,7 @@ func setupLogging() {
 
 func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	var err error
+	var ss DBWriter
 	// connect/authenticate
 	c := &Cluster{
 		AuthInfo: AuthInfo{
@@ -164,10 +164,8 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		return
 	}
 	// XXX - need to pull actual name from API
-	var ss = InfluxDBSink{
-		Cluster: c.ClusterName,
-	}
-	err = ss.Init(gc.ProcessorArgs)
+	ss = GetInfluxDBWriter()
+	err = ss.Init(c.ClusterName, gc.ProcessorArgs)
 	if err != nil {
 		log.Errorf("Unable to initialize InfluxDB plugin: %v", err)
 		return
@@ -201,7 +199,7 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 			log.Errorf("Failed to write stats to database: %s", err)
 			return
 		}
-		sleepTime := nextTime.Sub(time.Now())
+		sleepTime := time.Until(nextTime)
 		log.Infof("cluster %s sleeping for %v", c.ClusterName, sleepTime)
 		time.Sleep(sleepTime)
 	}

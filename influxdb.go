@@ -10,7 +10,7 @@ import (
 
 // InfluxDBSink defines a structure to talk to an InfluxDB database
 type InfluxDBSink struct {
-	Cluster  string
+	cluster  string
 	c        client.Client
 	bpConfig client.BatchPointsConfig
 }
@@ -19,13 +19,19 @@ type InfluxDBSink struct {
 type ptFields map[string]interface{}
 type ptTags map[string]string
 
+// GetInfluxDBWriter returns an InfluxDB DBWriter
+func GetInfluxDBWriter() DBWriter {
+	return &InfluxDBSink{}
+}
+
 // Init initializes an InfluxDBSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *InfluxDBSink) Init(args []string) error {
+func (s *InfluxDBSink) Init(cluster string, args []string) error {
 	// args are host, port, database
 	if len(args) != 3 {
 		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 3", len(args))
 	}
+	s.cluster = cluster
 	host, port, database := args[0], args[1], args[2]
 	url := "http://" + host + ":" + port
 	s.bpConfig = client.BatchPointsConfig{
@@ -87,8 +93,8 @@ func ptmapCopy(tags ptTags) ptTags {
 
 func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error) {
 	var baseTags ptTags
-	clusterTags := ptTags{"cluster": s.Cluster}
-	nodeTags := ptTags{"cluster": s.Cluster}
+	clusterTags := ptTags{"cluster": s.cluster}
+	nodeTags := ptTags{"cluster": s.cluster}
 	var fa []ptFields
 	var ta []ptTags
 	// Handle cluster vs node stats
