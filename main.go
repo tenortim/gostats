@@ -11,6 +11,9 @@ import (
 	logging "github.com/op/go-logging"
 )
 
+const Version = "0.01"
+const userAgent = "gostats/" + Version
+
 type tomlConfig struct {
 	Global    globalConfig
 	Cluster   []cluster

@@ -65,6 +65,7 @@ const maxRetries = 8
 
 // Set up Client etc.
 func (c *Cluster) initialize() error {
+	// already initialized?
 	if c.client != nil {
 		return nil
 	}
@@ -80,6 +81,7 @@ func (c *Cluster) initialize() error {
 	if c.Port == 0 {
 		c.Port = 8080
 	}
+	// create a cookiejar so our auth session cookie gets saved
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return err
@@ -120,11 +122,15 @@ func (c *Cluster) Authenticate() error {
 	// POST our authentication request to the API
 	// This is our first connection so we'll retry here in the hope that if
 	// we can't connect to one node, another may be responsive
-
+	req, err := http.NewRequest("Post", u.String(), bytes.NewBuffer(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", userAgent)
 	var resp *http.Response
 	retrySecs := 1
 	for i := 1; i <= maxRetries; i++ {
-		resp, err = c.client.Post(u.String(), "application/json", bytes.NewBuffer(b))
+		resp, err = c.client.Do(req)
 		if err == nil {
 			break
 		}
@@ -284,9 +290,14 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	req, err := http.NewRequest("Get", u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
 	retrySecs := 1
 	for i := 1; i < maxRetries; i++ {
-		resp, err = c.client.Get(u.String())
+		resp, err = c.client.Do(req)
 		if err == nil {
 			break
 		}
