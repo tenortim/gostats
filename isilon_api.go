@@ -127,6 +127,7 @@ func (c *Cluster) Authenticate() error {
 		return err
 	}
 	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/json")
 	var resp *http.Response
 	retrySecs := 1
 	for i := 1; i <= maxRetries; i++ {
@@ -295,6 +296,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/json")
 	retrySecs := 1
 	for i := 1; i < maxRetries; i++ {
 		resp, err = c.client.Do(req)
