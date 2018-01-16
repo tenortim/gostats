@@ -11,6 +11,7 @@ import (
 	logging "github.com/op/go-logging"
 )
 
+// Version is the released program version
 const Version = "0.01"
 const userAgent = "gostats/" + Version
 
@@ -47,6 +48,7 @@ type loglevel logging.Level
 var logFileName = flag.String("logfile", "./gostats.log", "pathname of log file")
 var logLevel = loglevel(logging.NOTICE)
 var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
+var checkStatReturn = flag.Bool("check-stat-return", false, "Verify that the api returns results for every stat requested")
 
 func (l *loglevel) String() string {
 	level := logging.Level(*l)
@@ -194,6 +196,9 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 			continue
 		}
 		readFailCount = 0
+		if *checkStatReturn {
+			verifyStatReturn(c.ClusterName, stats, sr)
+		}
 
 		log.Infof("cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
@@ -205,5 +210,21 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		sleepTime := time.Until(nextTime)
 		log.Infof("cluster %s sleeping for %v", c.ClusterName, sleepTime)
 		time.Sleep(sleepTime)
+	}
+}
+
+func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
+	resultNames := make(map[string]bool)
+	missing := []string{}
+	for _, result := range sr {
+		resultNames[result.Key] = true
+	}
+	for _, stat := range stats {
+		if !resultNames[stat] {
+			missing = append(missing, stat)
+		}
+	}
+	if len(missing) != 0 {
+		log.Errorf("Stats collection for cluster %s failed to collect the following stats: %v", cluster, missing)
 	}
 }
