@@ -122,7 +122,7 @@ func (c *Cluster) Authenticate() error {
 	// POST our authentication request to the API
 	// This is our first connection so we'll retry here in the hope that if
 	// we can't connect to one node, another may be responsive
-	req, err := http.NewRequest("Post", u.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(b))
 	if err != nil {
 		return err
 	}
@@ -291,7 +291,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("Get", u.String(), nil)
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
