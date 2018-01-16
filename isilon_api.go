@@ -222,6 +222,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	la := 0
 	// Need special case for short last get
 	ls := len(stats)
+	log.Info("fetch %d stats from cluster %s", ls, c.ClusterName)
 	// max minus (initial string + slop)
 	maxlen := MaxAPIPathLen - (len(initialPath) + 100)
 	buffer.WriteString(initialPath)
@@ -234,12 +235,15 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 				continue
 			}
 		}
+		log.Debugf("cluster %s fetching %v", c.ClusterName, buffer)
 		resp, err := c.restGet(buffer.String())
+		log.Debugf("cluster %s got response %v", c.ClusterName, resp)
 		if err != nil {
-			// log.Errorf("failed to get stats: %v\n", err)
+			log.Errorf("failed to get stats: %v\n", err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
+		log.Debugf("cluster %s got response %v", c.ClusterName, resp)
 		// Debug
 		// log.Debugf("stats get response = %s", resp)
 		r, err := parseStatResult(resp)
@@ -248,6 +252,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 			log.Errorf("Unable to parse response %s - error %s\n", resp, err)
 			return nil, err
 		}
+		log.Debugf("cluster %s parsed stats results = %v", c.ClusterName, r)
 		results = append(results, r...)
 	}
 	return results, nil
