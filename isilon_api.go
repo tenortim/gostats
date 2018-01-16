@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -155,6 +156,8 @@ func (c *Cluster) Authenticate() error {
 	if err != nil {
 		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
 	}
+	// drain any other output
+	io.Copy(ioutil.Discard, resp.Body)
 	var timeout int
 	ta, ok := ar["timeout_absolute"]
 	if ok {
@@ -222,7 +225,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	la := 0
 	// Need special case for short last get
 	ls := len(stats)
-	log.Infof("fetch %d stats from cluster %s", ls, c.ClusterName)
+	log.Infof("fetching %d stats from cluster %s", ls, c.ClusterName)
 	// max minus (initial string + slop)
 	maxlen := MaxAPIPathLen - (len(initialPath) + 100)
 	buffer.WriteString(initialPath)
@@ -235,13 +238,14 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 				continue
 			}
 		}
-		log.Debugf("cluster %s fetching %s", c.ClusterName, buffer)
+		log.Debugf("cluster %s fetching %s", c.ClusterName, buffer.String())
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
 			log.Errorf("failed to get stats: %v\n", err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
+		// XXX - Need to handle return of "errors" here (re-auth)
 		log.Debugf("cluster %s got response %s", c.ClusterName, resp)
 		// Debug
 		// log.Debugf("stats get response = %s", resp)
@@ -253,6 +257,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		}
 		log.Debugf("cluster %s parsed stats results = %v", c.ClusterName, r)
 		results = append(results, r...)
+		buffer.Reset()
 	}
 	return results, nil
 }
@@ -302,12 +307,38 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Content-Type", "application/json")
 	retrySecs := 1
+	// XXX need to refactor this mess
 	for i := 1; i < maxRetries; i++ {
-		resp, err = c.client.Do(req)
+		// need to check status in case of reath
+		for {
+			resp, err = c.client.Do(req)
+			if err != nil {
+				break
+			}
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+			// something went wrong
+			// drain any other output
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusUnauthorized {
+				log.Info("cluster %s authentication failure in GET, attemping re-auth", c.ClusterName)
+				err = c.Authenticate()
+				if err == nil {
+					log.Info("cluster %s successfully re-authenticated", c.ClusterName)
+					continue
+				}
+				log.Errorf("cluster %s failed to re-authenticate", c.ClusterName)
+				return nil, err
+			}
+			log.Errorf("cluster %s GET failed with unexpected status %s", c.ClusterName, resp.Status)
+			return nil, fmt.Errorf("GET failed with status %s", resp.Status)
+		}
 		if err == nil {
 			break
 		}
-		// XXX - consider adding more cases e.g. temporary DNS hiccup
+		// XXX - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
 			return nil, err
 		}
