@@ -15,10 +15,11 @@ import (
 const Version = "0.02"
 const userAgent = "gostats/" + Version
 
+// config file structures
 type tomlConfig struct {
-	Global    globalConfig
-	Cluster   []cluster
-	StatGroup []statgroup
+	Global     globalConfig
+	Clusters   []clusterconf
+	StatGroups []statgroupconf
 }
 
 type globalConfig struct {
@@ -28,17 +29,39 @@ type globalConfig struct {
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 }
 
-type cluster struct {
+type clusterconf struct {
 	Hostname string
 	Username string
 	Password string
 	SSLCheck bool `toml:"verify-ssl"`
 }
 
-type statgroup struct {
+type statgroupconf struct {
 	Name        string
 	UpdateIntvl string `toml:"update_interval"`
 	Stats       []string
+}
+
+type statconf struct {
+	statGroups       map[string][]string
+	activeStatGroups []string
+	stats            []string
+}
+
+// parsed/populated stat structures
+type stat struct {
+	key      string
+	units    string
+	datatype string // JSON "type"
+	// add enum for this
+	aggType     string
+	updateIntvl time.Duration
+}
+
+type statgroup struct {
+	name        string
+	updateIntvl time.Duration
+	stats       []string
 }
 
 var log = logging.MustGetLogger("gostats")
@@ -50,7 +73,9 @@ var logLevel = loglevel(logging.NOTICE)
 var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
 
 // debugging flags
-var checkStatReturn = flag.Bool("check-stat-return", false, "Verify that the api returns results for every stat requested")
+var checkStatReturn = flag.Bool("check-stat-return",
+	false,
+	"Verify that the api returns results for every stat requested")
 
 func (l *loglevel) String() string {
 	level := logging.Level(*l)
@@ -68,7 +93,9 @@ func (l *loglevel) Set(value string) error {
 
 func init() {
 	// tie log-level variable into flag parsing
-	flag.Var(&logLevel, "loglevel", "default log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG]")
+	flag.Var(&logLevel,
+		"loglevel",
+		"default log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG]")
 }
 
 func main() {
@@ -82,19 +109,41 @@ func main() {
 	log.Notice("Starting gostats")
 
 	// read in our config
-	log.Infof("Reading config file %s", *configFileName)
+	conf := mustReadConfig()
+	log.Info("Successfully read config file")
+
+	// Determine which stats to poll
+	log.Info("Parsing stat groups and stats")
+	// XXX need to pull groups for update information
+	sc := parseStatConfig(conf)
+	log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
+
+	// start collecting from each defined cluster
+	var wg sync.WaitGroup
+	wg.Add(len(conf.Clusters))
+	for _, cl := range conf.Clusters {
+		go func(cl clusterconf) {
+			log.Infof("starting collect for cluster %s", cl.Hostname)
+			defer wg.Done()
+			statsloop(cl, conf.Global, sc.stats)
+		}(cl)
+	}
+	wg.Wait()
+}
+
+func mustReadConfig() tomlConfig {
 	var conf tomlConfig
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
 		log.Fatal(err)
 	}
-	log.Info("Successfully read config file")
+	return conf
+}
 
-	// Determine which stats to poll
-	log.Info("Parsing stat groups and stats")
+func parseStatConfig(conf tomlConfig) statconf {
 	statgroups := make(map[string][]string)
-	for _, sg := range conf.StatGroup {
+	for _, sg := range conf.StatGroups {
 		statgroups[sg.Name] = sg.Stats
 	}
 	// validate active groups
@@ -106,6 +155,7 @@ func main() {
 		}
 		asg = append(asg, group)
 	}
+	// dedup stats using allstats as a set
 	allstats := make(map[string]bool)
 	for _, sg := range asg {
 		for _, stat := range statgroups[sg] {
@@ -116,19 +166,7 @@ func main() {
 	for stat := range allstats {
 		stats = append(stats, stat)
 	}
-	log.Infof("Parsed stats; %d stats will be collected", len(stats))
-
-	// start collecting from each defined cluster
-	var wg sync.WaitGroup
-	wg.Add(len(conf.Cluster))
-	for _, cl := range conf.Cluster {
-		go func(cl cluster) {
-			log.Infof("starting collect for cluster %s", cl.Hostname)
-			defer wg.Done()
-			statsloop(cl, conf.Global, stats)
-		}(cl)
-	}
-	wg.Wait()
+	return statconf{statgroups, asg, stats}
 }
 
 func setupLogging() {
@@ -147,7 +185,7 @@ func setupLogging() {
 	logging.SetBackend(backendLeveled)
 }
 
-func statsloop(cluster cluster, gc globalConfig, stats []string) {
+func statsloop(cluster clusterconf, gc globalConfig, stats []string) {
 	var err error
 	var ss DBWriter
 	// Connect to the cluster
