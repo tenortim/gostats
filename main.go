@@ -12,7 +12,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.01"
+const Version = "0.02"
 const userAgent = "gostats/" + Version
 
 type tomlConfig struct {
@@ -48,6 +48,8 @@ type loglevel logging.Level
 var logFileName = flag.String("logfile", "./gostats.log", "pathname of log file")
 var logLevel = loglevel(logging.NOTICE)
 var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
+
+// debugging flags
 var checkStatReturn = flag.Bool("check-stat-return", false, "Verify that the api returns results for every stat requested")
 
 func (l *loglevel) String() string {
@@ -148,7 +150,7 @@ func setupLogging() {
 func statsloop(cluster cluster, gc globalConfig, stats []string) {
 	var err error
 	var ss DBWriter
-	// connect/authenticate
+	// Connect to the cluster
 	c := &Cluster{
 		AuthInfo: AuthInfo{
 			Username: cluster.Username,
@@ -159,20 +161,20 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		VerifySSL: cluster.SSLCheck,
 	}
 	if err = c.Connect(); err != nil {
-		log.Errorf("Connection to cluster %q failed: %v", c.Hostname, err)
+		log.Errorf("Connection to cluster %s failed: %v", c.Hostname, err)
 		return
 	}
+	log.Infof("Connected to cluster %s, version %s", c.ClusterName, c.OSVersion)
 
-	// Need to be able to parse multiple backends - hardcode for now
-	if gc.Processor != "influxdb_plugin" {
-		log.Errorf("Unrecognized backend plugin name: %q", gc.Processor)
+	// Configure/initialize backend database writer
+	ss, err = getDBWriter(gc.Processor)
+	if err != nil {
+		log.Error(err)
 		return
 	}
-	// XXX - need to pull actual name from API
-	ss = GetInfluxDBWriter()
 	err = ss.Init(c.ClusterName, gc.ProcessorArgs)
 	if err != nil {
-		log.Errorf("Unable to initialize InfluxDB plugin: %v", err)
+		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
 		return
 	}
 
@@ -211,6 +213,14 @@ func statsloop(cluster cluster, gc globalConfig, stats []string) {
 		log.Infof("cluster %s sleeping for %v", c.ClusterName, sleepTime)
 		time.Sleep(sleepTime)
 	}
+}
+
+// return a DBWriter for the given backend name
+func getDBWriter(sp string) (DBWriter, error) {
+	if sp != "influxdb_plugin" {
+		return nil, fmt.Errorf("unsupported backend plugin %s", sp)
+	}
+	return GetInfluxDBWriter(), nil
 }
 
 func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
