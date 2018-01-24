@@ -18,8 +18,8 @@ const userAgent = "gostats/" + Version
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
-	Clusters   []clusterconf
-	StatGroups []statgroupconf
+	Clusters   []clusterConf
+	StatGroups []statGroupConf
 }
 
 type globalConfig struct {
@@ -29,36 +29,41 @@ type globalConfig struct {
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 }
 
-type clusterconf struct {
+type clusterConf struct {
 	Hostname string
 	Username string
 	Password string
 	SSLCheck bool `toml:"verify-ssl"`
 }
 
-type statgroupconf struct {
+type statGroupConf struct {
 	Name        string
 	UpdateIntvl string `toml:"update_interval"`
 	Stats       []string
 }
 
-type statconf struct {
-	statGroups       map[string][]string
+// all stat config information
+type statConf struct {
+	statGroups       map[string]statGroupDetail
 	activeStatGroups []string
 	stats            []string
 }
 
 // parsed/populated stat structures
-type stat struct {
-	key      string
-	units    string
-	datatype string // JSON "type"
-	// add enum for this
-	aggType     string
+type statGroupDetail struct {
+	multiplier float64
+	stats      []string
+}
+
+type statDetail struct {
+	key         string
+	units       string
+	datatype    string // JSON "type"
+	aggType     string // aggregation type - XXX add enum for this
 	updateIntvl time.Duration
 }
 
-type statgroup struct {
+type statGroup struct {
 	name        string
 	updateIntvl time.Duration
 	stats       []string
@@ -122,7 +127,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(conf.Clusters))
 	for _, cl := range conf.Clusters {
-		go func(cl clusterconf) {
+		go func(cl clusterConf) {
 			log.Infof("starting collect for cluster %s", cl.Hostname)
 			defer wg.Done()
 			statsloop(cl, conf.Global, sc.stats)
@@ -141,10 +146,17 @@ func mustReadConfig() tomlConfig {
 	return conf
 }
 
-func parseStatConfig(conf tomlConfig) statconf {
-	statgroups := make(map[string][]string)
+// parseStatConfig parses the stat-collection TOML config
+// note we can't configure update interval here because we don't yet have any
+// cluster connections and the values may vary by OS release so we want to
+// pull the refresh info dircetly from each cluster (in statsloop)
+func parseStatConfig(conf tomlConfig) statConf {
+	statgroups := make(map[string]statGroupDetail)
 	for _, sg := range conf.StatGroups {
-		statgroups[sg.Name] = sg.Stats
+		// XXX parse update interval
+		multiplier := 1.0
+		sgd := statGroupDetail{multiplier, sg.Stats}
+		statgroups[sg.Name] = sgd
 	}
 	// validate active groups
 	asg := []string{}
@@ -158,7 +170,7 @@ func parseStatConfig(conf tomlConfig) statconf {
 	// dedup stats using allstats as a set
 	allstats := make(map[string]bool)
 	for _, sg := range asg {
-		for _, stat := range statgroups[sg] {
+		for _, stat := range statgroups[sg].stats {
 			allstats[stat] = true
 		}
 	}
@@ -166,7 +178,7 @@ func parseStatConfig(conf tomlConfig) statconf {
 	for stat := range allstats {
 		stats = append(stats, stat)
 	}
-	return statconf{statgroups, asg, stats}
+	return statConf{statgroups, asg, stats}
 }
 
 func setupLogging() {
@@ -185,7 +197,7 @@ func setupLogging() {
 	logging.SetBackend(backendLeveled)
 }
 
-func statsloop(cluster clusterconf, gc globalConfig, stats []string) {
+func statsloop(cluster clusterConf, gc globalConfig, stats []string) {
 	var err error
 	var ss DBWriter
 	// Connect to the cluster
@@ -215,6 +227,8 @@ func statsloop(cluster clusterconf, gc globalConfig, stats []string) {
 		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
 		return
 	}
+
+	// Grab stat detail (including refresh times)
 
 	// loop collecting and pushing stats
 	readFailCount := 0
