@@ -37,7 +37,7 @@ type Cluster struct {
 	ClusterName string
 	baseURL     string
 	client      *http.Client
-	reauthTime  time.Time
+	//	reauthTime  time.Time
 }
 
 // StatResult contains the information returned for a single stat key
@@ -55,6 +55,7 @@ type StatResult struct {
 
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
+const statInfoPath = "/platform/1/statistics/keys/"
 
 // Retry parameter(s) for connection failures
 const maxRetries = 8
@@ -150,7 +151,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		log.Debugf("cluster %s fetching %s", c.ClusterName, buffer.String())
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
-			log.Errorf("failed to get stats: %v\n", err)
+			log.Errorf("cluster %s failed to get stats: %v\n", c.ClusterName, err)
 			// XXX maybe handle partial errors rather than totally failing?
 			return nil, err
 		}
@@ -161,7 +162,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		r, err := parseStatResult(resp)
 		// XXX -handle error here
 		if err != nil {
-			log.Errorf("Unable to parse response %s - error %s\n", resp, err)
+			log.Errorf("cluster %s unable to parse response %s - error %s\n", c.ClusterName, resp, err)
 			return nil, err
 		}
 		log.Debugf("cluster %s parsed stats results = %v", c.ClusterName, r)
@@ -180,6 +181,31 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 		return nil, err
 	}
 	return sa.Stats, nil
+}
+
+func (c *Cluster) getStatInfo(stats []string) (map[string]statDetail, error) {
+	statInfo := make(map[string]statDetail)
+	for _, stat := range stats {
+		path := statInfoPath + stat
+		resp, err := c.restGet(path)
+		if err != nil {
+			log.Warningf("cluster %s failed to retrieve information for stat %s", c.ClusterName, stat)
+			continue
+		}
+		// parse stat info
+		detail, err := parseStatInfo(resp)
+		if err != nil {
+			log.Warningf("cluster %s failed to parse detailed information for stat %s", c.ClusterName, stat)
+			continue
+		}
+		statInfo[stat] = detail
+	}
+	return statInfo, nil
+}
+
+func parseStatInfo(res []byte) (statDetail, error) {
+	var detail statDetail
+	return detail, fmt.Errorf("not implemented")
 }
 
 // helper function
