@@ -18,8 +18,8 @@ const userAgent = "gostats/" + Version
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
-	Clusters   []clusterConf
-	StatGroups []statGroupConf
+	Clusters   []clusterConf   `toml:"cluster"`
+	StatGroups []statGroupConf `toml:"statgroup"`
 }
 
 type globalConfig struct {
@@ -153,6 +153,7 @@ func mustReadConfig() tomlConfig {
 func parseStatConfig(conf tomlConfig) statConf {
 	statgroups := make(map[string]statGroupDetail)
 	for _, sg := range conf.StatGroups {
+		log.Debugf("Parsing stat group detail for group %q", sg.Name)
 		// XXX parse update interval
 		multiplier := 1.0
 		sgd := statGroupDetail{multiplier, sg.Stats}
