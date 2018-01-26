@@ -56,7 +56,7 @@ type statGroupDetail struct {
 }
 
 type statDetail struct {
-	key         string
+	//	key         string
 	units       string
 	datatype    string // JSON "type"
 	aggType     string // aggregation type - XXX add enum for this
@@ -149,7 +149,7 @@ func mustReadConfig() tomlConfig {
 // parseStatConfig parses the stat-collection TOML config
 // note we can't configure update interval here because we don't yet have any
 // cluster connections and the values may vary by OS release so we want to
-// pull the refresh info dircetly from each cluster (in statsloop)
+// pull the refresh info directly from each cluster (in statsloop)
 func parseStatConfig(conf tomlConfig) statConf {
 	statgroups := make(map[string]statGroupDetail)
 	for _, sg := range conf.StatGroups {
@@ -229,6 +229,10 @@ func statsloop(cluster clusterConf, gc globalConfig, stats []string) {
 	}
 
 	// Grab stat detail (including refresh times)
+	statInfo, err := c.getStatInfo(stats)
+	if err != nil {
+		fmt.Printf("statInfo = %v", statInfo)
+	}
 
 	// loop collecting and pushing stats
 	readFailCount := 0
