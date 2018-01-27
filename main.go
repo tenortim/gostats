@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,9 +17,14 @@ const Version = "0.02"
 const userAgent = "gostats/" + Version
 
 // parsed/populated stat structures
-type statGroupDetail struct {
+type sgRefresh struct {
 	multiplier float64
-	stats      []string
+	absTime    float64
+}
+
+type statGroupDetail struct {
+	sgRefresh
+	stats []string
 }
 
 type statDetail struct {
@@ -84,7 +91,6 @@ func main() {
 
 	// Determine which stats to poll
 	log.Info("Parsing stat groups and stats")
-	// XXX need to pull groups for update information
 	sc := parseStatConfig(conf)
 	log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
 
@@ -110,8 +116,8 @@ func parseStatConfig(conf tomlConfig) statConf {
 	for _, sg := range conf.StatGroups {
 		log.Debugf("Parsing stat group detail for group %q", sg.Name)
 		// XXX parse update interval, lock to 1x for now
-		multiplier := 1.0
-		sgd := statGroupDetail{multiplier, sg.Stats}
+		sgr := parseUpdateIntvl(sg.UpdateIntvl)
+		sgd := statGroupDetail{sgr, sg.Stats}
 		statgroups[sg.Name] = sgd
 	}
 	// validate active groups
@@ -135,6 +141,28 @@ func parseStatConfig(conf tomlConfig) statConf {
 		stats = append(stats, stat)
 	}
 	return statConf{statgroups, asg, stats}
+}
+
+func parseUpdateIntvl(interval string) sgRefresh {
+	// default is 1x multiplier (no effect)
+	dr := sgRefresh{1.0, 0.0}
+	if strings.HasPrefix(interval, "*") {
+		if interval == "*" {
+			return dr
+		}
+		multiplier, err := strconv.ParseFloat(interval[1:], 64)
+		if err != nil {
+			log.Warningf("unable to parse interval multiplier %q, setting to 1", interval)
+			return dr
+		}
+		return sgRefresh{multiplier, 0.0}
+	}
+	absTime, err := strconv.ParseFloat(interval, 64)
+	if err != nil {
+		log.Warningf("unable to parse interval value %q, setting to 1x multiplier", interval)
+		return dr
+	}
+	return sgRefresh{0.0, absTime}
 }
 
 func setupLogging() {
