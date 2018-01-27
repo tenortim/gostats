@@ -239,9 +239,10 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		// pull info from key
 		k := k.(map[string]interface{})
 		// XXX - Handle pulling the refresh times out of "policies" here
-		key := k["key"]
-		dct := k["default_cache_time"]
-		_, _ = key, dct
+		detail.units = k["units"].(string)
+		detail.datatype = k["type"].(string)
+		detail.aggType = k["aggregation_type"].(string)
+		// key := k["key"]
 	}
 
 	return &detail, nil

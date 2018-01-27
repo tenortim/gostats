@@ -189,8 +189,10 @@ func statsloop(cluster clusterConf, gc globalConfig, sc statConf) {
 	// Grab stat detail (including refresh times)
 	statInfo, err := c.getStatInfo(stats)
 	if err != nil {
-		fmt.Printf("statInfo = %v", statInfo)
+		log.Errorf("unable to retrieve stat info for cluster %s", c.ClusterName)
+		return
 	}
+	log.Debugf("statInfo = %#v", statInfo)
 
 	// loop collecting and pushing stats
 	readFailCount := 0
