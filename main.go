@@ -7,47 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	logging "github.com/op/go-logging"
 )
 
 // Version is the released program version
 const Version = "0.02"
 const userAgent = "gostats/" + Version
-
-// config file structures
-type tomlConfig struct {
-	Global     globalConfig
-	Clusters   []clusterConf   `toml:"cluster"`
-	StatGroups []statGroupConf `toml:"statgroup"`
-}
-
-type globalConfig struct {
-	Processor        string   `toml:"stats_processor"`
-	ProcessorArgs    []string `toml:"stats_processor_args"`
-	ActiveStatGroups []string `toml:"active_stat_groups"`
-	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
-}
-
-type clusterConf struct {
-	Hostname string
-	Username string
-	Password string
-	SSLCheck bool `toml:"verify-ssl"`
-}
-
-type statGroupConf struct {
-	Name        string
-	UpdateIntvl string `toml:"update_interval"`
-	Stats       []string
-}
-
-// all stat config information
-type statConf struct {
-	statGroups       map[string]statGroupDetail
-	activeStatGroups []string
-	stats            []string
-}
 
 // parsed/populated stat structures
 type statGroupDetail struct {
@@ -130,20 +95,10 @@ func main() {
 		go func(cl clusterConf) {
 			log.Infof("starting collect for cluster %s", cl.Hostname)
 			defer wg.Done()
-			statsloop(cl, conf.Global, sc.stats)
+			statsloop(cl, conf.Global, sc)
 		}(cl)
 	}
 	wg.Wait()
-}
-
-func mustReadConfig() tomlConfig {
-	var conf tomlConfig
-	_, err := toml.DecodeFile(*configFileName, &conf)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
-		log.Fatal(err)
-	}
-	return conf
 }
 
 // parseStatConfig parses the stat-collection TOML config
@@ -154,7 +109,7 @@ func parseStatConfig(conf tomlConfig) statConf {
 	statgroups := make(map[string]statGroupDetail)
 	for _, sg := range conf.StatGroups {
 		log.Debugf("Parsing stat group detail for group %q", sg.Name)
-		// XXX parse update interval
+		// XXX parse update interval, lock to 1x for now
 		multiplier := 1.0
 		sgd := statGroupDetail{multiplier, sg.Stats}
 		statgroups[sg.Name] = sgd
@@ -198,7 +153,7 @@ func setupLogging() {
 	logging.SetBackend(backendLeveled)
 }
 
-func statsloop(cluster clusterConf, gc globalConfig, stats []string) {
+func statsloop(cluster clusterConf, gc globalConfig, sc statConf) {
 	var err error
 	var ss DBWriter
 	// Connect to the cluster
@@ -229,6 +184,8 @@ func statsloop(cluster clusterConf, gc globalConfig, stats []string) {
 		return
 	}
 
+	// need to split into groups
+	stats := sc.stats
 	// Grab stat detail (including refresh times)
 	statInfo, err := c.getStatInfo(stats)
 	if err != nil {

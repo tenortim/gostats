@@ -47,7 +47,7 @@ active_stat_groups = [
 # SSL certificate should be verified. If it is omitted then the default is
 # False (i.e. don't verify SSL cert).
 [[cluster]]
-hostname = "cse-s210-1"
+hostname = "cse-s210-1.cse.isilon.com"
 username = "root"
 password = "a"
 verify-ssl = false

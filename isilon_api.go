@@ -17,7 +17,7 @@ import (
 )
 
 // MaxAPIPathLen is the limit on the length of an API request URL
-const MaxAPIPathLen = 8191
+const MaxAPIPathLen = 8198
 
 // AuthInfo provides username and password to authenticate
 // against the OneFS API
@@ -130,15 +130,15 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	var results []StatResult
 	var buffer bytes.Buffer
 
-	initialPath := statsPath + "?degraded=true&devid=all"
+	basePath := statsPath + "?degraded=true&devid=all"
 	// length of key args
 	la := 0
 	// Need special case for short last get
 	ls := len(stats)
 	log.Infof("fetching %d stats from cluster %s", ls, c.ClusterName)
 	// max minus (initial string + slop)
-	maxlen := MaxAPIPathLen - (len(initialPath) + 100)
-	buffer.WriteString(initialPath)
+	maxlen := MaxAPIPathLen - (len(basePath) + 100)
+	buffer.WriteString(basePath)
 	for i, stat := range stats {
 		// 5 == len("?key=")
 		if la+5+len(stat) < maxlen {
@@ -189,23 +189,62 @@ func (c *Cluster) getStatInfo(stats []string) (map[string]statDetail, error) {
 		path := statInfoPath + stat
 		resp, err := c.restGet(path)
 		if err != nil {
-			log.Warningf("cluster %s failed to retrieve information for stat %s", c.ClusterName, stat)
+			log.Warningf("cluster %s failed to retrieve information for stat %s - %s", c.ClusterName, stat, err)
 			continue
 		}
 		// parse stat info
 		detail, err := parseStatInfo(resp)
 		if err != nil {
-			log.Warningf("cluster %s failed to parse detailed information for stat %s", c.ClusterName, stat)
+			log.Warningf("cluster %s failed to parse detailed information for stat %s - %s", c.ClusterName, stat, err)
 			continue
 		}
-		statInfo[stat] = detail
+		statInfo[stat] = *detail
 	}
 	return statInfo, nil
 }
 
-func parseStatInfo(res []byte) (statDetail, error) {
+// parse out the return from the stat detail endpoint
+func parseStatInfo(res []byte) (*statDetail, error) {
 	var detail statDetail
-	return detail, fmt.Errorf("not implemented")
+	var v interface{}
+
+	// Unmarshal the JSON return first
+	err := json.Unmarshal(res, &v)
+	if err != nil {
+		return nil, err
+	}
+
+	m := v.(map[string]interface{})
+	// Did the API throw an error?
+	if ea, ok := m["errors"]; ok {
+		// handle API error return here
+		// I've never seen more than one error in the array, but we handle it anyway
+		ea := ea.([]interface{})
+		es := bytes.NewBufferString("Error: ")
+		for _, e := range ea {
+			e := e.(map[string]interface{})
+			es.WriteString(fmt.Sprintf("code: %q, message: %q", e["code"], e["message"]))
+		}
+		return nil, fmt.Errorf("%s", es.String())
+	}
+
+	var keys interface{}
+	var ok bool
+	if keys, ok = m["keys"]; !ok {
+		// If we didn't get an error above, we should have got a valid return
+		return nil, fmt.Errorf("unexpected JSON return %#v", m)
+	}
+	ka := keys.([]interface{})
+	for _, k := range ka {
+		// pull info from key
+		k := k.(map[string]interface{})
+		// XXX - Handle pulling the refresh times out of "policies" here
+		key := k["key"]
+		dct := k["default_cache_time"]
+		_, _ = key, dct
+	}
+
+	return &detail, nil
 }
 
 // helper function
