@@ -39,13 +39,6 @@ type statGroupConf struct {
 	Stats       []string
 }
 
-// all stat config information
-type statConf struct {
-	statGroups       map[string]statGroup
-	activeStatGroups []string
-	stats            []string
-}
-
 func mustReadConfig() tomlConfig {
 	var conf tomlConfig
 	_, err := toml.DecodeFile(*configFileName, &conf)

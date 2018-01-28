@@ -60,7 +60,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		var ta []ptTags
 		fa, ta, err = s.decodeStat(stat)
 		if err != nil {
-			// XXX handle errors
+			// TODO consider trying to recover/handle errors
 			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
 		}
 		for i, f := range fa {
@@ -169,7 +169,7 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		// Drop these, but log them if log level is high enough
 		log.Debugf("Cluster %s, unable to decode stat %s due to nil value, skipping", s.cluster, stat.Key)
 	default:
-		// XXX return error here
+		// TODO consider returning an error rather than panicing
 		log.Errorf("Unable to decode stat %+v", stat)
 		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
 	}

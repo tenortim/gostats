@@ -1,9 +1,12 @@
 package main
 
 import (
-	"container/heap"
 	"time"
 )
+
+// Pretty much copied verbatim from
+// https://golang.org/pkg/container/heap/#example__priorityQueue
+// Just a few name changes
 
 // An Item is something we manage in a priority queue.
 type Item struct {
@@ -47,9 +50,11 @@ func (pq *PriorityQueue) Pop() interface{} {
 	return item
 }
 
+/*
 // update modifies the priority and value of an Item in the queue.
 func (pq *PriorityQueue) update(item *Item, value statTimeSet, priority time.Time) {
 	item.value = value
 	item.priority = priority
 	heap.Fix(pq, item.index)
 }
+*/

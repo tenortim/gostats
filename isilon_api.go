@@ -152,15 +152,15 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
 			log.Errorf("cluster %s failed to get stats: %v\n", c.ClusterName, err)
-			// XXX maybe handle partial errors rather than totally failing?
+			// TODO investigate handling partial errors rather than totally failing?
 			return nil, err
 		}
-		// XXX - Need to handle return of "errors" here (re-auth)
+		// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
+		// when using session cookies)
 		log.Debugf("cluster %s got response %s", c.ClusterName, resp)
 		// Debug
 		// log.Debugf("stats get response = %s", resp)
 		r, err := parseStatResult(resp)
-		// XXX -handle error here
 		if err != nil {
 			log.Errorf("cluster %s unable to parse response %s - error %s\n", c.ClusterName, resp, err)
 			return nil, err
@@ -238,7 +238,7 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 	for _, k := range ka {
 		// pull info from key
 		k := k.(map[string]interface{})
-		// XXX - Handle pulling the refresh times out of "policies" here
+		// Extract stat update times out of "policies" if they exist
 		kp := k["policies"]
 		if kp == nil {
 			// 0 == no defined update interval
@@ -299,7 +299,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		if err == nil {
 			break
 		}
-		// XXX - consider adding more retryable cases e.g. temporary DNS hiccup
+		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
 			return nil, err
 		}

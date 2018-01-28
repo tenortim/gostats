@@ -32,7 +32,7 @@ type statDetail struct {
 	//	key         string
 	units       string
 	datatype    string // JSON "type"
-	aggType     string // aggregation type - XXX add enum for this
+	aggType     string // aggregation type - add enum if/when we use it
 	updateIntvl float64
 }
 
@@ -156,10 +156,7 @@ func parseStatConfig(conf tomlConfig) map[string]statGroup {
 			allstats[stat] = true
 		}
 	}
-	stats := []string{}
-	for stat := range allstats {
-		stats = append(stats, stat)
-	}
+
 	for _, sg := range asg {
 		statGroups[sg] = allStatGroups[sg]
 	}
@@ -285,7 +282,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		log.Infof("cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
 		if err != nil {
-			// XXX maybe implement backoff here?
+			// TODO maybe implement backoff/error-handling here?
 			log.Errorf("Failed to write stats to database: %s", err)
 			return
 		}
