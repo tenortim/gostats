@@ -110,7 +110,7 @@ func main() {
 	wg.Add(len(conf.Clusters))
 	for _, cl := range conf.Clusters {
 		go func(cl clusterConf) {
-			log.Infof("starting collect for cluster %s", cl.Hostname)
+			log.Infof("spawning collection loop for cluster %s", cl.Hostname)
 			defer wg.Done()
 			statsloop(cl, conf.Global, sg)
 		}(cl)
@@ -228,6 +228,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	}
 
 	// divide stats into buckets based on update interval
+	log.Infof("calculating stat refresh times for cluster %s", c.ClusterName)
 	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg)
 
 	// initial priority PriorityQueue
@@ -245,6 +246,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	heap.Init(&pq)
 
 	// loop collecting and pushing stats
+	log.Infof("starting stat collection loop for cluster %s", c.ClusterName)
 	readFailCount := 0
 	const readFailLimit = 30
 	for {
@@ -255,7 +257,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 			time.Sleep(nextTime.Sub(curTime))
 		}
 		// Collect one set of stats
-		log.Infof("cluster %s start collecting stats", c.ClusterName)
+		log.Debugf("cluster %s start collecting stats", c.ClusterName)
 		var sr []StatResult
 		stats := nextItem.value.stats
 		for {
@@ -279,7 +281,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		nextItem.priority = nextItem.priority.Add(nextItem.value.interval)
 		heap.Push(&pq, nextItem)
 
-		log.Infof("cluster %s start writing stats to back end", c.ClusterName)
+		log.Debugf("cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
 		if err != nil {
 			// TODO maybe implement backoff/error-handling here?
