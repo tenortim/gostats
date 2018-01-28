@@ -9,6 +9,9 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// If not overridden, we will only poll every minUpdateInterval seconds
+const minUpdateInterval = 30
+
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
@@ -38,7 +41,7 @@ type statGroupConf struct {
 
 // all stat config information
 type statConf struct {
-	statGroups       map[string]statGroupDetail
+	statGroups       map[string]statGroup
 	activeStatGroups []string
 	stats            []string
 }
@@ -51,6 +54,10 @@ func mustReadConfig() tomlConfig {
 		// don't call log.Fatal so goimports doesn't get confused and try to add "log" to the imports
 		log.Critical(err)
 		os.Exit(1)
+	}
+	if conf.Global.MinUpdateInvtl == 0 {
+		log.Info("No override for minimum update interval, using default")
+		conf.Global.MinUpdateInvtl = minUpdateInterval
 	}
 	return conf
 }

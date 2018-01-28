@@ -183,7 +183,7 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 	return sa.Stats, nil
 }
 
-func (c *Cluster) getStatInfo(stats []string) (map[string]statDetail, error) {
+func (c *Cluster) getStatInfo(stats []string) map[string]statDetail {
 	statInfo := make(map[string]statDetail)
 	for _, stat := range stats {
 		path := statInfoPath + stat
@@ -200,7 +200,7 @@ func (c *Cluster) getStatInfo(stats []string) (map[string]statDetail, error) {
 		}
 		statInfo[stat] = *detail
 	}
-	return statInfo, nil
+	return statInfo
 }
 
 // parse out the return from the stat detail endpoint
@@ -239,6 +239,21 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		// pull info from key
 		k := k.(map[string]interface{})
 		// XXX - Handle pulling the refresh times out of "policies" here
+		kp := k["policies"]
+		if kp == nil {
+			// 0 == no defined update interval
+			detail.updateIntvl = 0.0
+			continue
+		}
+		kpa := kp.([]interface{})
+		for _, pol := range kpa {
+			pol := pol.(map[string]interface{})
+			// we only want the current info, not the historical
+			if pol["persistent"] == false {
+				detail.updateIntvl = pol["interval"].(float64)
+				break
+			}
+		}
 		detail.units = k["units"].(string)
 		detail.datatype = k["type"].(string)
 		detail.aggType = k["aggregation_type"].(string)
