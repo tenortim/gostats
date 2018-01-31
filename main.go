@@ -94,7 +94,7 @@ func main() {
 	setupLogging()
 
 	// announce ourselves
-	log.Notice("Starting gostats")
+	log.Noticef("Starting gostats version %s", Version)
 
 	// read in our config
 	conf := mustReadConfig()
