@@ -22,7 +22,7 @@ sudo apt-get install influxdb
 The Connector is designed to allow for customization via a plugin architecture. The default plugin, influxdb.go, is configured via the provided example configuration file. If you would like to process the stats data differently or send them to a different backend than the influxdb.go you can implement a custom stats processor. Here are the instructions for doing so:
 * Create a file called my_plugin.go, or whatever you want to name it.
 * In the my_plugin.go file define the following:
-** a structure that retains the information needed for the stats-writing function to be able to send data to the backend. Influxdb example:
+ * a structure that retains the information needed for the stats-writing function to be able to send data to the backend. Influxdb example:
 ```
 type InfluxDBSink struct {
         cluster  string
