@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.03"
+const Version = "0.04"
 const userAgent = "gostats/" + Version
 
 // parsed/populated stat structures

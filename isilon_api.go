@@ -5,15 +5,19 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 // MaxAPIPathLen is the limit on the length of an API request URL
@@ -37,7 +41,8 @@ type Cluster struct {
 	ClusterName string
 	baseURL     string
 	client      *http.Client
-	//	reauthTime  time.Time
+	csrfToken   string
+	reauthTime  time.Time
 }
 
 // StatResult contains the information returned for a single stat key
@@ -53,6 +58,7 @@ type StatResult struct {
 	Value       interface{} `json:"value"`
 }
 
+const sessionPath = "/session/1/session"
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
 const statInfoPath = "/platform/1/statistics/keys/"
@@ -78,14 +84,103 @@ func (c *Cluster) initialize() error {
 	if c.Port == 0 {
 		c.Port = 8080
 	}
-
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		return err
+	}
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !c.VerifySSL},
 	}
 	c.client = &http.Client{
 		Transport: tr,
+		Jar:       jar,
 	}
 	c.baseURL = "https://" + c.Hostname + ":" + strconv.Itoa(c.Port)
+	return nil
+}
+
+// Authenticate to the cluster using the session API endpoint
+// store the cookies
+func (c *Cluster) Authenticate() error {
+	var err error
+	var resp *http.Response
+
+	am := struct {
+		Username string   `json:"username"`
+		Password string   `json:"password"`
+		Services []string `json:"services"`
+	}{
+		Username: c.Username,
+		Password: c.Password,
+		Services: []string{"platform"},
+	}
+	b, err := json.Marshal(am)
+	if err != nil {
+		return err
+	}
+	u, err := url.Parse(c.baseURL + sessionPath)
+	if err != nil {
+		return err
+	}
+	// POST our authentication request to the API
+	// This is our first connection so we'll retry here in the hope that if
+	// we can't connect to one node, another may be responsive
+	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/json")
+	retrySecs := 1
+	for i := 1; i <= maxRetries; i++ {
+		resp, err = c.client.Do(req)
+		if err == nil {
+			break
+		}
+		log.Warning(err)
+		log.Warningf("Retrying in %d seconds", retrySecs)
+		time.Sleep(time.Duration(retrySecs) * time.Second)
+		retrySecs *= 2
+	}
+	if err != nil {
+		return fmt.Errorf("Max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
+	}
+	defer resp.Body.Close()
+	// 201(StatusCreated) is success
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("Authenticate: auth failed - %s", resp.Status)
+	}
+	// parse out time limit so we can reauth when necessary
+	dec := json.NewDecoder(resp.Body)
+	var ar map[string]interface{}
+	err = dec.Decode(&ar)
+	if err != nil {
+		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
+	}
+	// drain any other output
+	io.Copy(ioutil.Discard, resp.Body)
+	var timeout int
+	ta, ok := ar["timeout_absolute"]
+	if ok {
+		timeout = int(ta.(float64))
+	} else {
+		// This shouldn't happen, but just set it to a sane default
+		log.Warning("authentication API did not return timeout value, using default")
+		timeout = 14400
+	}
+	if timeout > 60 {
+		timeout -= 60 // Give a minute's grace to the reauth timer
+	}
+	c.reauthTime = time.Now().Add(time.Duration(timeout) * time.Second)
+
+	// Dig out CSRF token so we can set the appropriate header
+	for _, cookie := range c.client.Jar.Cookies(u) {
+		if cookie.Name == "isicsrf" {
+			log.Debugf("Found csrf cookie %v\n", cookie)
+			c.csrfToken = cookie.Value
+		}
+	}
+
 	return nil
 }
 
@@ -116,6 +211,9 @@ func (c *Cluster) GetClusterConfig() error {
 func (c *Cluster) Connect() error {
 	var err error
 	if err = c.initialize(); err != nil {
+		return err
+	}
+	if err = c.Authenticate(); err != nil {
 		return err
 	}
 	if err = c.GetClusterConfig(); err != nil {
@@ -282,22 +380,42 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var err error
 	var resp *http.Response
 
+	if time.Now().After(c.reauthTime) {
+		log.Info("re-authenticating based on timer")
+		if err = c.Authenticate(); err != nil {
+			return nil, err
+		}
+	}
+
 	u, err := url.Parse(c.baseURL + endpoint)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Content-Type", "application/json")
-	req.SetBasicAuth(c.AuthInfo.Username, c.AuthInfo.Password)
+	if c.csrfToken != "" {
+		req.Header.Set("X-CSRF-Token", c.csrfToken)
+		req.Header.Set("Referer", c.baseURL)
+	}
+
 	retrySecs := 1
 	for i := 1; i < maxRetries; i++ {
 		resp, err = c.client.Do(req)
-		if err == nil {
+		if err == nil && resp.StatusCode == http.StatusOK {
 			break
+		}
+		// check for need to re-authenticate (maybe we are talking to a different node)
+		if err == nil && resp.StatusCode == http.StatusUnauthorized {
+			log.Info("Authentication failed, attempting to re-authenticate")
+			if err = c.Authenticate(); err != nil {
+				return nil, err
+			}
+			continue
+			// TODO handle repeated auth failures to avoid panic
 		}
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
