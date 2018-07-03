@@ -11,6 +11,10 @@ stats_processor = "influxdb_plugin"
 # localhost 8086 isi_data_insights auth
 stats_processor_args = [ "localhost", "8086", "isi_data_insights" ]
 
+# Alternative back end for testing
+# stat_processor = "discard_plugin"
+stat_processor_args = []
+
 # Specifies the active list of stat groups to query, each stat group name
 # specified here should have a corresponding section in the config file.
 active_stat_groups = [

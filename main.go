@@ -339,10 +339,14 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup) []statTimeSet {
 
 // return a DBWriter for the given backend name
 func getDBWriter(sp string) (DBWriter, error) {
-	if sp != "influxdb_plugin" {
+	switch sp {
+	case "influxdb_plugin":
+		return GetInfluxDBWriter(), nil
+	case "discard_plugin":
+		return GetDiscardWriter(), nil
+	default:
 		return nil, fmt.Errorf("unsupported backend plugin %s", sp)
 	}
-	return GetInfluxDBWriter(), nil
 }
 
 func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
