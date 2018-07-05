@@ -271,6 +271,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 }
 
 func parseStatResult(res []byte) ([]StatResult, error) {
+	// XXX need to handle errors response here!
 	sa := struct {
 		Stats []StatResult `json:"stats"`
 	}{}
@@ -410,12 +411,18 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		}
 		// check for need to re-authenticate (maybe we are talking to a different node)
 		if err == nil && resp.StatusCode == http.StatusUnauthorized {
+			resp.Body.Close()
 			log.Info("Authentication failed, attempting to re-authenticate")
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
 			continue
 			// TODO handle repeated auth failures to avoid panic
+		}
+		if err == nil {
+			resp.Body.Close()
+			log.Errorf("Unexcpected HTTP response: %v", resp.Status)
+			return nil, err
 		}
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
