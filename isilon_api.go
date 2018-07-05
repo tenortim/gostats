@@ -416,6 +416,10 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
+			// If we had to re-auth, we need to update the CSRF token too
+			if c.csrfToken != "" {
+				req.Header.Set("X-CSRF-Token", c.csrfToken)
+			}
 			continue
 			// TODO handle repeated auth failures to avoid panic
 		}
