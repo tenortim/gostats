@@ -421,7 +421,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		}
 		if err == nil {
 			resp.Body.Close()
-			log.Errorf("Unexcpected HTTP response: %v", resp.Status)
+			log.Errorf("Unexpected HTTP response: %v", resp.Status)
 			return nil, err
 		}
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
@@ -434,6 +434,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Unexpected HTTP response: %v", resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
