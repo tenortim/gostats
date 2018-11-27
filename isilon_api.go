@@ -412,7 +412,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		// check for need to re-authenticate (maybe we are talking to a different node)
 		if resp.StatusCode == http.StatusUnauthorized {
 			resp.Body.Close()
-			log.Infof("Authentication to cluster %v failed, attempting to re-authenticate", c.Hostname)
+			log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.Hostname)
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
