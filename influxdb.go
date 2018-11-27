@@ -8,7 +8,7 @@ import (
 	"github.com/influxdata/influxdb/client/v2"
 )
 
-// InfluxDBSink defines a structure to talk to an InfluxDB database
+// InfluxDBSink defines the data to allow us talk to an InfluxDB database
 type InfluxDBSink struct {
 	cluster  string
 	c        client.Client
