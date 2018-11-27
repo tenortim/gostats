@@ -382,7 +382,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var resp *http.Response
 
 	if time.Now().After(c.reauthTime) {
-		log.Info("re-authenticating based on timer")
+		log.Infof("re-authenticating to cluster %v based on timer", c.Hostname)
 		if err = c.Authenticate(); err != nil {
 			return nil, err
 		}
@@ -410,9 +410,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 			break
 		}
 		// check for need to re-authenticate (maybe we are talking to a different node)
-		if err == nil && resp.StatusCode == http.StatusUnauthorized {
+		if resp.StatusCode == http.StatusUnauthorized {
 			resp.Body.Close()
-			log.Info("Authentication failed, attempting to re-authenticate")
+			log.Infof("Authentication to cluster %v failed, attempting to re-authenticate", c.Hostname)
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
@@ -425,7 +425,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		}
 		if err == nil {
 			resp.Body.Close()
-			log.Errorf("Unexpected HTTP response: %v", resp.Status)
+			log.Errorf("Cluster %v returned unexpected HTTP response: %v", c.Hostname, resp.Status)
 			return nil, err
 		}
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
@@ -440,7 +440,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Unexpected HTTP response: %v", resp.Status)
+		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.Hostname, resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
