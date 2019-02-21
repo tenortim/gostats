@@ -105,10 +105,14 @@ func main() {
 	sg := parseStatConfig(conf)
 	// log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
 
-	// start collecting from each defined cluster
+	// start collecting from each defined and enabled cluster
 	var wg sync.WaitGroup
-	wg.Add(len(conf.Clusters))
 	for _, cl := range conf.Clusters {
+		if cl.Disabled {
+			log.Infof("skipping disabled cluster %q", cl.Hostname)
+			continue
+		}
+		wg.Add(1)
 		go func(cl clusterConf) {
 			log.Infof("spawning collection loop for cluster %s", cl.Hostname)
 			defer wg.Done()

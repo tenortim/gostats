@@ -31,6 +31,7 @@ type clusterConf struct {
 	Username string
 	Password string
 	SSLCheck bool `toml:"verify-ssl"`
+	Disabled bool
 }
 
 type statGroupConf struct {
