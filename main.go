@@ -274,8 +274,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 				log.Errorf("Unable to collect stats from %s after %d tries, giving up", c.ClusterName, readFailLimit)
 				return
 			}
-			log.Errorf("Failed to retrieve stats for cluster %q: %v\n", c.ClusterName, err)
-			log.Errorf("Retry #%d in 1 minute", readFailCount)
+			log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in 1 minute", c.ClusterName, err, readFailCount)
 			time.Sleep(time.Minute)
 		}
 		readFailCount = 0

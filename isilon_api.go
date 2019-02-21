@@ -256,11 +256,9 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 		// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 		// when using session cookies)
 		log.Debugf("cluster %s got response %s", c.ClusterName, resp)
-		// Debug
-		// log.Debugf("stats get response = %s", resp)
 		r, err := parseStatResult(resp)
 		if err != nil {
-			log.Errorf("cluster %s unable to parse response %s - error %s\n", c.ClusterName, resp, err)
+			log.Errorf("cluster %s unable to parse response %q - error %s\n", c.ClusterName, resp, err)
 			return nil, err
 		}
 		log.Debugf("cluster %s parsed stats results = %v", c.ClusterName, r)
@@ -382,7 +380,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var resp *http.Response
 
 	if time.Now().After(c.reauthTime) {
-		log.Infof("re-authenticating to cluster %v based on timer", c.Hostname)
+		log.Infof("re-authenticating to cluster %v based on timer", c.ClusterName)
 		if err = c.Authenticate(); err != nil {
 			return nil, err
 		}
@@ -406,7 +404,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		// check for need to re-authenticate (maybe we are talking to a different node)
 		if resp.StatusCode == http.StatusUnauthorized {
 			resp.Body.Close()
-			log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.Hostname)
+			log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.ClusterName)
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
@@ -419,8 +417,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		}
 		if err == nil {
 			resp.Body.Close()
-			log.Errorf("Cluster %v returned unexpected HTTP response: %v", c.Hostname, resp.Status)
-			return nil, err
+			return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
 		}
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
@@ -434,7 +431,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.Hostname, resp.Status)
+		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
@@ -443,7 +440,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 
 func (c *Cluster) newGetRequest(url string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-        if err != nil {
+	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
