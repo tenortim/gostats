@@ -345,7 +345,7 @@ func getDBWriter(sp string) (DBWriter, error) {
 	case "discard_plugin":
 		return GetDiscardWriter(), nil
 	default:
-		return nil, fmt.Errorf("unsupported backend plugin %s", sp)
+		return nil, fmt.Errorf("unsupported backend plugin %q", sp)
 	}
 }
 

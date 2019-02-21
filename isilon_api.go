@@ -392,15 +392,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	req, err := c.newGetRequest(u.String())
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Content-Type", "application/json")
-	if c.csrfToken != "" {
-		req.Header.Set("X-CSRF-Token", c.csrfToken)
-		req.Header.Set("Referer", c.baseURL)
 	}
 
 	retrySecs := 1
@@ -416,9 +410,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 			if err = c.Authenticate(); err != nil {
 				return nil, err
 			}
-			// If we had to re-auth, we need to update the CSRF token too
-			if c.csrfToken != "" {
-				req.Header.Set("X-CSRF-Token", c.csrfToken)
+			req, err = c.newGetRequest(u.String())
+			if err != nil {
+				return nil, err
 			}
 			continue
 			// TODO handle repeated auth failures to avoid panic
@@ -445,4 +439,18 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	return body, err
+}
+
+func (c *Cluster) newGetRequest(url string) (*http.Request, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+        if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/json")
+	if c.csrfToken != "" {
+		req.Header.Set("X-CSRF-Token", c.csrfToken)
+		req.Header.Set("Referer", c.baseURL)
+	}
+	return req, nil
 }
