@@ -14,8 +14,14 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.04"
+const Version = "0.05"
 const userAgent = "gostats/" + Version
+
+const (
+	authtypeBasic   = "basic-auth"
+	authtypeSession = "session"
+)
+const defaultAuthType = authtypeSession
 
 // parsed/populated stat structures
 type sgRefresh struct {
@@ -120,6 +126,7 @@ func main() {
 		}(cl)
 	}
 	wg.Wait()
+	log.Notice("All collectors complete - exiting")
 }
 
 // parseStatConfig parses the stat-collection TOML config
@@ -203,12 +210,23 @@ type statTimeSet struct {
 func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	var err error
 	var ss DBWriter
+
 	// Connect to the cluster
+	authtype := cluster.AuthType
+	if authtype == "" {
+		log.Infof("Co authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
+		authtype = authtypeSession
+	}
+	if authtype != authtypeSession && authtype != authtypeBasic {
+		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cluster.Hostname, authtypeSession)
+		authtype = authtypeSession
+	}
 	c := &Cluster{
 		AuthInfo: AuthInfo{
 			Username: cluster.Username,
 			Password: cluster.Password,
 		},
+		AuthType:  authtype,
 		Hostname:  cluster.Hostname,
 		Port:      8080,
 		VerifySSL: cluster.SSLCheck,
@@ -232,7 +250,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	}
 
 	// divide stats into buckets based on update interval
-	log.Infof("calculating stat refresh times for cluster %s", c.ClusterName)
+	log.Infof("Calculating stat refresh times for cluster %s", c.ClusterName)
 	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg)
 
 	// initial priority PriorityQueue
@@ -250,7 +268,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	heap.Init(&pq)
 
 	// loop collecting and pushing stats
-	log.Infof("starting stat collection loop for cluster %s", c.ClusterName)
+	log.Infof("Starting stat collection loop for cluster %s", c.ClusterName)
 	readFailCount := 0
 	const readFailLimit = 30
 	for {
@@ -261,7 +279,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 			time.Sleep(nextTime.Sub(curTime))
 		}
 		// Collect one set of stats
-		log.Debugf("cluster %s start collecting stats", c.ClusterName)
+		log.Debugf("Cluster %s start collecting stats", c.ClusterName)
 		var sr []StatResult
 		stats := nextItem.value.stats
 		for {
@@ -284,7 +302,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		nextItem.priority = nextItem.priority.Add(nextItem.value.interval)
 		heap.Push(&pq, nextItem)
 
-		log.Debugf("cluster %s start writing stats to back end", c.ClusterName)
+		log.Debugf("Cluster %s start writing stats to back end", c.ClusterName)
 		err = ss.WriteStats(sr)
 		if err != nil {
 			// TODO maybe implement backoff/error-handling here?

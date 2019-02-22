@@ -34,6 +34,7 @@ type AuthInfo struct {
 // cluster via the OneFS API
 type Cluster struct {
 	AuthInfo
+	AuthType    string
 	Hostname    string
 	Port        int
 	VerifySSL   bool
@@ -123,7 +124,7 @@ func (c *Cluster) Authenticate() error {
 		return err
 	}
 	// POST our authentication request to the API
-	// This is our first connection so we'll retry here in the hope that if
+	// This may be our first connection so we'll retry here in the hope that if
 	// we can't connect to one node, another may be responsive
 	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(b))
 	if err != nil {
@@ -137,8 +138,7 @@ func (c *Cluster) Authenticate() error {
 		if err == nil {
 			break
 		}
-		log.Warning(err)
-		log.Warningf("Retrying in %d seconds", retrySecs)
+		log.Warningf("Authentication request failed: %s - retrying in %d seconds", err, retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
 	}
@@ -173,12 +173,16 @@ func (c *Cluster) Authenticate() error {
 	}
 	c.reauthTime = time.Now().Add(time.Duration(timeout) * time.Second)
 
+	c.csrfToken = ""
 	// Dig out CSRF token so we can set the appropriate header
 	for _, cookie := range c.client.Jar.Cookies(u) {
 		if cookie.Name == "isicsrf" {
 			log.Debugf("Found csrf cookie %v\n", cookie)
 			c.csrfToken = cookie.Value
 		}
+	}
+	if c.csrfToken == "" {
+		log.Noticef("No CSRF token found for cluster %s, assuming old-style session auth", c.Hostname)
 	}
 
 	return nil
@@ -213,8 +217,10 @@ func (c *Cluster) Connect() error {
 	if err = c.initialize(); err != nil {
 		return err
 	}
-	if err = c.Authenticate(); err != nil {
-		return err
+	if c.AuthType == authtypeSession {
+		if err = c.Authenticate(); err != nil {
+			return err
+		}
 	}
 	if err = c.GetClusterConfig(); err != nil {
 		return err
@@ -379,7 +385,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var err error
 	var resp *http.Response
 
-	if time.Now().After(c.reauthTime) {
+	if c.AuthType == authtypeSession && time.Now().After(c.reauthTime) {
 		log.Infof("re-authenticating to cluster %v based on timer", c.ClusterName)
 		if err = c.Authenticate(); err != nil {
 			return nil, err
@@ -404,6 +410,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		// check for need to re-authenticate (maybe we are talking to a different node)
 		if resp.StatusCode == http.StatusUnauthorized {
 			resp.Body.Close()
+			if c.AuthType == authtypeBasic {
+				return nil, fmt.Errorf("basic authentication for cluster %v failed - check username and password", c.ClusterName)
+			}
 			log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.ClusterName)
 			if err = c.Authenticate(); err != nil {
 				return nil, err
@@ -445,7 +454,11 @@ func (c *Cluster) newGetRequest(url string) (*http.Request, error) {
 	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Content-Type", "application/json")
+	if c.AuthType == authtypeBasic {
+		req.SetBasicAuth(c.AuthInfo.Username, c.AuthInfo.Password)
+	}
 	if c.csrfToken != "" {
+		// Must be newer session-based auth with CSRF protection
 		req.Header.Set("X-CSRF-Token", c.csrfToken)
 		req.Header.Set("Referer", c.baseURL)
 	}

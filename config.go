@@ -30,6 +30,7 @@ type clusterConf struct {
 	Hostname string
 	Username string
 	Password string
+	AuthType string
 	SSLCheck bool `toml:"verify-ssl"`
 	Disabled bool
 }
