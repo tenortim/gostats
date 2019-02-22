@@ -404,30 +404,32 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	retrySecs := 1
 	for i := 1; i < maxRetries; i++ {
 		resp, err = c.client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			break
-		}
-		// check for need to re-authenticate (maybe we are talking to a different node)
-		if resp.StatusCode == http.StatusUnauthorized {
-			resp.Body.Close()
-			if c.AuthType == authtypeBasic {
-				return nil, fmt.Errorf("basic authentication for cluster %v failed - check username and password", c.ClusterName)
-			}
-			log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.ClusterName)
-			if err = c.Authenticate(); err != nil {
-				return nil, err
-			}
-			req, err = c.newGetRequest(u.String())
-			if err != nil {
-				return nil, err
-			}
-			continue
-			// TODO handle repeated auth failures to avoid panic
-		}
 		if err == nil {
+			// We got a valid http response
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+			// check for need to re-authenticate (maybe we are talking to a different node)
+			if resp.StatusCode == http.StatusUnauthorized {
+				resp.Body.Close()
+				if c.AuthType == authtypeBasic {
+					return nil, fmt.Errorf("basic authentication for cluster %v failed - check username and password", c.ClusterName)
+				}
+				log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.ClusterName)
+				if err = c.Authenticate(); err != nil {
+					return nil, err
+				}
+				req, err = c.newGetRequest(u.String())
+				if err != nil {
+					return nil, err
+				}
+				continue
+				// TODO handle repeated auth failures to avoid panic
+			}
 			resp.Body.Close()
 			return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
 		}
+		// assert err != nil
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
 		if !isConnectionRefused(err) {
 			return nil, err
@@ -439,10 +441,10 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	return body, err
 }
