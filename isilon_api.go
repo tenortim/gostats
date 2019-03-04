@@ -182,7 +182,7 @@ func (c *Cluster) Authenticate() error {
 		}
 	}
 	if c.csrfToken == "" {
-		log.Noticef("No CSRF token found for cluster %s, assuming old-style session auth", c.Hostname)
+		log.Debugf("No CSRF token found for cluster %s, assuming old-style session auth", c.Hostname)
 	}
 
 	return nil
