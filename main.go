@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.05"
+const Version = "0.06"
 const userAgent = "gostats/" + Version
 
 const (
@@ -123,6 +123,7 @@ func main() {
 			log.Infof("spawning collection loop for cluster %s", cl.Hostname)
 			defer wg.Done()
 			statsloop(cl, conf.Global, sg)
+			log.Infof("collection loop for cluster %s ended", cl.Hostname)
 		}(cl)
 	}
 	wg.Wait()
@@ -269,8 +270,6 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 
 	// loop collecting and pushing stats
 	log.Infof("Starting stat collection loop for cluster %s", c.ClusterName)
-	readFailCount := 0
-	const readFailLimit = 30
 	for {
 		nextItem := heap.Pop(&pq).(*Item)
 		curTime := time.Now()
@@ -282,20 +281,21 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		log.Debugf("Cluster %s start collecting stats", c.ClusterName)
 		var sr []StatResult
 		stats := nextItem.value.stats
+		readFailCount := 0
+		const maxRetryTime = time.Second * 1280
+		retryTime := time.Second * 10
 		for {
 			sr, err = c.GetStats(stats)
 			if err == nil {
 				break
 			}
 			readFailCount++
-			if readFailCount >= readFailLimit {
-				log.Errorf("Unable to collect stats from %s after %d tries, giving up", c.ClusterName, readFailLimit)
-				return
+			log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in %v", c.ClusterName, err, readFailCount, retryTime)
+			time.Sleep(retryTime)
+			if retryTime < maxRetryTime {
+				retryTime *= 2
 			}
-			log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in 1 minute", c.ClusterName, err, readFailCount)
-			time.Sleep(time.Minute)
 		}
-		readFailCount = 0
 		if *checkStatReturn {
 			verifyStatReturn(c.ClusterName, stats, sr)
 		}
