@@ -156,7 +156,6 @@ stats = [
     "node.load.15min",
     "node.memory.used",
     "node.memory.free",
-    "node.memory.cache",
     "node.open.files",
 ]
 
