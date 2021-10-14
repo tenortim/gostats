@@ -215,7 +215,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	// Connect to the cluster
 	authtype := cluster.AuthType
 	if authtype == "" {
-		log.Infof("Co authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
+		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
 		authtype = authtypeSession
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
