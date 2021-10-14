@@ -74,13 +74,13 @@ func (c *Cluster) initialize() error {
 		return nil
 	}
 	if c.Username == "" {
-		return fmt.Errorf("Username must be set")
+		return fmt.Errorf("username must be set")
 	}
 	if c.Password == "" {
-		return fmt.Errorf("Password must be set")
+		return fmt.Errorf("password must be set")
 	}
 	if c.Hostname == "" {
-		return fmt.Errorf("Hostname must be set")
+		return fmt.Errorf("hostname must be set")
 	}
 	if c.Port == 0 {
 		c.Port = 8080
@@ -143,7 +143,7 @@ func (c *Cluster) Authenticate() error {
 		retrySecs *= 2
 	}
 	if err != nil {
-		return fmt.Errorf("Max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
+		return fmt.Errorf("max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
 	}
 	defer resp.Body.Close()
 	// 201(StatusCreated) is success

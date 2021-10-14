@@ -42,7 +42,7 @@ func (s *InfluxDBSink) Init(cluster string, args []string) error {
 		Addr: url,
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to create InfluxDB client - %v", err.Error())
+		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
 	}
 	s.c = c
 	return nil
@@ -52,7 +52,7 @@ func (s *InfluxDBSink) Init(cluster string, args []string) error {
 func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
-		return fmt.Errorf("Unable to create InfluxDB batch points - %v", err.Error())
+		return fmt.Errorf("unable to create InfluxDB batch points - %v", err.Error())
 	}
 	for _, stat := range stats {
 		var pts []*client.Point
@@ -77,7 +77,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 	// write the batch
 	err = s.c.Write(bp)
 	if err != nil {
-		return fmt.Errorf("Failed to write batch of points - %v", err.Error())
+		return fmt.Errorf("failed to write batch of points - %v", err.Error())
 	}
 	return nil
 }
