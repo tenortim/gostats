@@ -216,11 +216,11 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	authtype := cluster.AuthType
 	if authtype == "" {
 		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
-		authtype = authtypeSession
+		authtype = defaultAuthType
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
 		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cluster.Hostname, authtypeSession)
-		authtype = authtypeSession
+		authtype = defaultAuthType
 	}
 	c := &Cluster{
 		AuthInfo: AuthInfo{
