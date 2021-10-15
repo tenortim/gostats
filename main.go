@@ -227,10 +227,11 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 			Username: cluster.Username,
 			Password: cluster.Password,
 		},
-		AuthType:  authtype,
-		Hostname:  cluster.Hostname,
-		Port:      8080,
-		VerifySSL: cluster.SSLCheck,
+		AuthType:   authtype,
+		Hostname:   cluster.Hostname,
+		Port:       8080,
+		VerifySSL:  cluster.SSLCheck,
+		maxRetries: gc.maxRetries,
 	}
 	if err = c.Connect(); err != nil {
 		log.Errorf("Connection to cluster %s failed: %v", c.Hostname, err)

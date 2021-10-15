@@ -4,13 +4,17 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/BurntSushi/toml"
 )
 
 // If not overridden, we will only poll every minUpdateInterval seconds
-const minUpdateInterval = 30
+const defaultMinUpdateInterval = 30
+
+// Default retry limit
+const defaultMaxRetries = 8
 
 // config file structures
 type tomlConfig struct {
@@ -24,6 +28,7 @@ type globalConfig struct {
 	ProcessorArgs    []string `toml:"stats_processor_args"`
 	ActiveStatGroups []string `toml:"active_stat_groups"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
+	maxRetries       int      `toml:"max_retries"`
 }
 
 type clusterConf struct {
@@ -43,6 +48,8 @@ type statGroupConf struct {
 
 func mustReadConfig() tomlConfig {
 	var conf tomlConfig
+	conf.Global.maxRetries = defaultMaxRetries
+	conf.Global.MinUpdateInvtl = defaultMinUpdateInterval
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
@@ -50,9 +57,10 @@ func mustReadConfig() tomlConfig {
 		log.Critical(err)
 		os.Exit(1)
 	}
-	if conf.Global.MinUpdateInvtl == 0 {
-		log.Info("No override for minimum update interval, using default")
-		conf.Global.MinUpdateInvtl = minUpdateInterval
+	// If retries is 0 or negative, make it effectively infinite
+	if conf.Global.maxRetries <= 0 {
+		conf.Global.maxRetries = math.MaxInt
 	}
+
 	return conf
 }

@@ -44,6 +44,7 @@ type Cluster struct {
 	client      *http.Client
 	csrfToken   string
 	reauthTime  time.Time
+	maxRetries  int
 }
 
 // StatResult contains the information returned for a single stat key
@@ -64,8 +65,7 @@ const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
 const statInfoPath = "/platform/1/statistics/keys/"
 
-// Retry parameter(s) for connection failures
-const maxRetries = 8
+const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 
 // Set up Client etc.
 func (c *Cluster) initialize() error {
@@ -133,7 +133,7 @@ func (c *Cluster) Authenticate() error {
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Content-Type", "application/json")
 	retrySecs := 1
-	for i := 1; i <= maxRetries; i++ {
+	for i := 1; i <= c.maxRetries; i++ {
 		resp, err = c.client.Do(req)
 		if err == nil {
 			break
@@ -141,6 +141,9 @@ func (c *Cluster) Authenticate() error {
 		log.Warningf("Authentication request failed: %s - retrying in %d seconds", err, retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
+		if retrySecs > maxTimeoutSecs {
+			retrySecs = maxTimeoutSecs
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("max retries exceeded for connect to %s, aborting connection attempt", c.Hostname)
@@ -402,7 +405,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 
 	retrySecs := 1
-	for i := 1; i < maxRetries; i++ {
+	for i := 1; i < c.maxRetries; i++ {
 		resp, err = c.client.Do(req)
 		if err == nil {
 			// We got a valid http response
@@ -437,6 +440,9 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		log.Errorf("Connection to %s refused, retrying in %d seconds", c.Hostname, retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
+		if retrySecs > maxTimeoutSecs {
+			retrySecs = maxTimeoutSecs
+		}
 	}
 	if err != nil {
 		return nil, err
