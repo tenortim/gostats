@@ -155,8 +155,12 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 			default:
 				fields["value"] = vv
 			}
-			fa = append(fa, fields)
-			ta = append(ta, tags)
+			if fields["op_name"] == "change_notify" {
+				log.Debugf("Cluster %s, dropping broken change_notify stat", s.cluster)
+			} else {
+				fa = append(fa, fields)
+				ta = append(ta, tags)
+			}
 		}
 	case map[string]interface{}:
 		fields := make(ptFields)
@@ -177,8 +181,12 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 				fields[km] = vm
 			}
 		}
-		fa = append(fa, fields)
-		ta = append(ta, tags)
+		if fields["op_name"] == "change_notify" {
+			log.Debugf("Cluster %s, dropping broken change_notify stat", s.cluster)
+		} else {
+			fa = append(fa, fields)
+			ta = append(ta, tags)
+		}
 	case nil:
 		// It seems that the stats API can return nil values where
 		// ErrorString is set, but ErrorCode is 0
