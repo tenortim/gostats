@@ -27,19 +27,35 @@ func GetInfluxDBWriter() DBWriter {
 // Init initializes an InfluxDBSink so that points can be written
 // The array of argument strings comprises host, port, database
 func (s *InfluxDBSink) Init(cluster string, args []string) error {
-	// args are host, port, database
-	if len(args) != 3 {
+	var username, password string
+	authenticated := false
+	// args are host, port, database, and, optionally, username and password
+	switch len(args) {
+	case 3:
+		authenticated = false
+	case 5:
+		authenticated = true
+	default:
 		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 3", len(args))
 	}
+
 	s.cluster = cluster
 	host, port, database := args[0], args[1], args[2]
+	if authenticated {
+		username = args[4]
+		password = args[5]
+	}
 	url := "http://" + host + ":" + port
+
 	s.bpConfig = client.BatchPointsConfig{
 		Database:  database,
 		Precision: "s",
 	}
+
 	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr: url,
+		Addr:     url,
+		Username: username,
+		Password: password,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())

@@ -6,9 +6,9 @@
 # default log_level is INFO
 # log_level = "DEBUG"
 stats_processor = "influxdb_plugin"
-# Use "auth" as the 4th arg in order to be prompted for the
-# InfluxDB username and password stats_processor_args, example:
-# localhost 8086 isi_data_insights auth
+# The first three arguments are the host/IP, port and database for the InfluxDB database
+# Optionally, pass the InfluxDB username and password as the fourth and fifth arguments, e.g.:
+# localhost 8086 isi_data_insights influxdbuser influxdbpass
 stats_processor_args = [ "localhost", "8086", "isi_data_insights" ]
 
 # Alternative back end for testing
