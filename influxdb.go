@@ -202,6 +202,11 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 	return fa, ta, nil
 }
 
+// drop_stat checks the supplied fields and returns a boolean which, if true, specifies that
+// this statistic should be dropped.
+//
+// Some statistics (specifically, SMB change notify) have unusual semantics that can result in
+// misleadingly large latency values.
 func drop_stat(fields *ptFields) bool {
 	if (*fields)["op_name"] == "change_notify" || (*fields)["op_name"] == "read_directory_change" {
 		return true
