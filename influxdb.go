@@ -42,8 +42,8 @@ func (s *InfluxDBSink) Init(cluster string, args []string) error {
 	s.cluster = cluster
 	host, port, database := args[0], args[1], args[2]
 	if authenticated {
-		username = args[4]
-		password = args[5]
+		username = args[3]
+		password = args[4]
 	}
 	url := "http://" + host + ":" + port
 
