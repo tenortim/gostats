@@ -5,14 +5,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/influxdata/influxdb/client/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
 )
 
 // InfluxDBSink defines the data to allow us talk to an InfluxDB database
 type InfluxDBSink struct {
 	cluster  string
-	c        client.Client
-	bpConfig client.BatchPointsConfig
+	c        influxdb2.Client
+	writeAPI api.WriteAPI
 }
 
 // types for the decoded fields and tags
@@ -27,74 +28,54 @@ func GetInfluxDBWriter() DBWriter {
 // Init initializes an InfluxDBSink so that points can be written
 // The array of argument strings comprises host, port, database
 func (s *InfluxDBSink) Init(cluster string, args []string) error {
-	var username, password string
-	authenticated := false
-	// args are host, port, database, and, optionally, username and password
-	switch len(args) {
-	case 3:
-		authenticated = false
-	case 5:
-		authenticated = true
-	default:
-		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 3", len(args))
+	// args are host, port, database, and access token
+	if len(args) != 4 {
+		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 4", len(args))
 	}
 
 	s.cluster = cluster
-	host, port, database := args[0], args[1], args[2]
-	if authenticated {
-		username = args[3]
-		password = args[4]
-	}
+	host, port, bucket, org, token := args[0], args[1], args[2], args[3], args[4]
+
 	url := "http://" + host + ":" + port
+	client := influxdb2.NewClient(url, token)
+	writeAPI := client.WriteAPI(org, bucket)
 
-	s.bpConfig = client.BatchPointsConfig{
-		Database:  database,
-		Precision: "s",
-	}
+	//if err != nil {
+	//	return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
+	//}
+	s.c = client
+	s.writeAPI = writeAPI
 
-	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     url,
-		Username: username,
-		Password: password,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
-	}
-	s.c = c
+	// Get errors channel
+	errorsCh := writeAPI.Errors()
+	// Create go proc for reading and logging errors
+	go func() {
+		for err := range errorsCh {
+			log.Errorf("InfluxDB async write error for cluster %s: %s\n", cluster, err.Error())
+		}
+	}()
 	return nil
 }
 
 // WriteStats takes an array of StatResults and writes them to InfluxDB
 func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
-	bp, err := client.NewBatchPoints(s.bpConfig)
-	if err != nil {
-		return fmt.Errorf("unable to create InfluxDB batch points - %v", err.Error())
-	}
 	for _, stat := range stats {
-		var pts []*client.Point
 		var fa []ptFields
 		var ta []ptTags
+		var err error
 		fa, ta, err = s.decodeStat(stat)
 		if err != nil {
 			// TODO consider trying to recover/handle errors
 			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
 		}
 		for i, f := range fa {
-			var pt *client.Point
-			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
-			if err != nil {
-				log.Warningf("failed to create point %q:%v", stat.Key, stat.Value)
-				continue
-			}
-			pts = append(pts, pt)
+			pt := influxdb2.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
+			s.writeAPI.WritePoint(pt)
 		}
-		bp.AddPoints(pts)
+
 	}
 	// write the batch
-	err = s.c.Write(bp)
-	if err != nil {
-		return fmt.Errorf("failed to write batch of points - %v", err.Error())
-	}
+	s.writeAPI.Flush()
 	return nil
 }
 
