@@ -29,7 +29,7 @@ func GetInfluxDBWriter() DBWriter {
 // The array of argument strings comprises host, port, database
 func (s *InfluxDBSink) Init(cluster string, args []string) error {
 	// args are host, port, database, and access token
-	if len(args) != 4 {
+	if len(args) != 5 {
 		return fmt.Errorf("InfluxDB Init() wrong number of args %d - expected 4", len(args))
 	}
 
