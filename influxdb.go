@@ -88,7 +88,9 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 			}
 			pts = append(pts, pt)
 		}
-		bp.AddPoints(pts)
+		if len(pts) > 0 {
+			bp.AddPoints(pts)
+		}
 	}
 	// write the batch
 	err = s.c.Write(bp)
@@ -155,8 +157,12 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 			default:
 				fields["value"] = vv
 			}
-			fa = append(fa, fields)
-			ta = append(ta, tags)
+			if drop_stat(&fields) {
+				log.Debugf("Cluster %s, dropping broken change_notify stat", s.cluster)
+			} else {
+				fa = append(fa, fields)
+				ta = append(ta, tags)
+			}
 		}
 	case map[string]interface{}:
 		fields := make(ptFields)
@@ -177,8 +183,12 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 				fields[km] = vm
 			}
 		}
-		fa = append(fa, fields)
-		ta = append(ta, tags)
+		if drop_stat(&fields) {
+			log.Debugf("Cluster %s, dropping broken change_notify stat", s.cluster)
+		} else {
+			fa = append(fa, fields)
+			ta = append(ta, tags)
+		}
 	case nil:
 		// It seems that the stats API can return nil values where
 		// ErrorString is set, but ErrorCode is 0
@@ -190,4 +200,16 @@ func (s *InfluxDBSink) decodeStat(stat StatResult) ([]ptFields, []ptTags, error)
 		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
 	}
 	return fa, ta, nil
+}
+
+// drop_stat checks the supplied fields and returns a boolean which, if true, specifies that
+// this statistic should be dropped.
+//
+// Some statistics (specifically, SMB change notify) have unusual semantics that can result in
+// misleadingly large latency values.
+func drop_stat(fields *ptFields) bool {
+	if (*fields)["op_name"] == "change_notify" || (*fields)["op_name"] == "read_directory_change" {
+		return true
+	}
+	return false
 }
