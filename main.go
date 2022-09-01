@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.06"
+const Version = "0.07"
 const userAgent = "gostats/" + Version
 
 const (
@@ -36,6 +36,7 @@ type statGroup struct {
 
 type statDetail struct {
 	//	key         string
+	valid       bool // flag if this stat doesn't exist on this cluster
 	units       string
 	datatype    string // JSON "type"
 	aggType     string // aggregation type - add enum if/when we use it
@@ -331,6 +332,10 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup) []statTimeSet {
 		}
 		si := c.getStatInfo(sg[group].stats)
 		for _, stat := range sg[group].stats {
+			if !si[stat].valid {
+				log.Warningf("skipping invalid stat: '%v'", stat)
+				continue
+			}
 			sui := si[stat].updateIntvl
 			var d time.Duration
 			if sui == 0 {
