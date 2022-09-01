@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -161,7 +160,7 @@ func (c *Cluster) Authenticate() error {
 		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
 	}
 	// drain any other output
-	io.Copy(ioutil.Discard, resp.Body)
+	io.Copy(io.Discard, resp.Body)
 	var timeout int
 	ta, ok := ar["timeout_absolute"]
 	if ok {
@@ -290,18 +289,22 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 }
 
 func (c *Cluster) getStatInfo(stats []string) map[string]statDetail {
+	badStat := statDetail{valid: false}
+
 	statInfo := make(map[string]statDetail)
 	for _, stat := range stats {
 		path := statInfoPath + stat
 		resp, err := c.restGet(path)
 		if err != nil {
-			log.Warningf("cluster %s failed to retrieve information for stat %s - %s", c.ClusterName, stat, err)
+			log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c.ClusterName, stat, err)
+			statInfo[stat] = badStat
 			continue
 		}
 		// parse stat info
 		detail, err := parseStatInfo(resp)
 		if err != nil {
-			log.Warningf("cluster %s failed to parse detailed information for stat %s - %s", c.ClusterName, stat, err)
+			log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c.ClusterName, stat, err)
+			statInfo[stat] = badStat
 			continue
 		}
 		statInfo[stat] = *detail
@@ -366,6 +369,7 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		// key := k["key"]
 	}
 
+	detail.valid = true
 	return &detail, nil
 }
 
@@ -451,7 +455,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	return body, err
 }
 
