@@ -44,6 +44,7 @@ type Cluster struct {
 	csrfToken   string
 	reauthTime  time.Time
 	maxRetries  int
+	normalize   bool
 }
 
 // StatResult contains the information returned for a single stat key
@@ -208,7 +209,11 @@ func (c *Cluster) GetClusterConfig() error {
 	release := r["version"]
 	rel := release.(string)
 	c.OSVersion = rel
-	c.ClusterName = strings.ToLower(m["name"].(string))
+	if c.normalize {
+		c.ClusterName = strings.ToLower(m["name"].(string)) //Config option
+	} else {
+		c.ClusterName = m["name"].(string)
+	}
 	return nil
 }
 

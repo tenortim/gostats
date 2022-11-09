@@ -21,6 +21,9 @@ stat_processor_args = []
 # Default is still 8 retries. Uncomment the following line to retry forever
 # max_retries = 0
 
+# normalize cluster names to lowercase
+normalize = false
+
 # Specifies the active list of stat groups to query, each stat group name
 # specified here should have a corresponding section in the config file.
 active_stat_groups = [

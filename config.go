@@ -16,6 +16,9 @@ const defaultMinUpdateInterval = 30
 // Default retry limit
 const defaultMaxRetries = 8
 
+// Default Normalizaion of ClusterNames
+const defaultNormalize = true
+
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
@@ -29,6 +32,7 @@ type globalConfig struct {
 	ActiveStatGroups []string `toml:"active_stat_groups"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 	maxRetries       int      `toml:"max_retries"`
+	normalize        bool     `toml:"normalize"`
 }
 
 type clusterConf struct {
@@ -50,6 +54,7 @@ func mustReadConfig() tomlConfig {
 	var conf tomlConfig
 	conf.Global.maxRetries = defaultMaxRetries
 	conf.Global.MinUpdateInvtl = defaultMinUpdateInterval
+	conf.Global.normalize = defaultNormalize
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
