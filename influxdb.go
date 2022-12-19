@@ -93,9 +93,14 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		}
 	}
 	// write the batch
-	err = s.c.Write(bp)
-	if err != nil {
-		return fmt.Errorf("failed to write batch of points - %v", err.Error())
+	const defaultMaxRetries = 5
+	for i := 0; i < defaultMaxRetries; i++ {
+		err = s.c.Write(bp)
+		if err != nil {
+			return fmt.Errorf("failed to write batch of points - %v", err.Error())
+		}
+		// Sleep for 60s
+		time.Sleep(60 * time.Second)
 	}
 	return nil
 }
