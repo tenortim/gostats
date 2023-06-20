@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.07"
+const Version = "0.08"
 const userAgent = "gostats/" + Version
 
 const (
@@ -32,15 +32,6 @@ type sgRefresh struct {
 type statGroup struct {
 	sgRefresh
 	stats []string
-}
-
-type statDetail struct {
-	//	key         string
-	valid       bool // flag if this stat doesn't exist on this cluster
-	units       string
-	datatype    string // JSON "type"
-	aggType     string // aggregation type - add enum if/when we use it
-	updateIntvl float64
 }
 
 var log = logging.MustGetLogger("gostats")
@@ -240,21 +231,12 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	}
 	log.Infof("Connected to cluster %s, version %s", c.ClusterName, c.OSVersion)
 
-	// Configure/initialize backend database writer
-	ss, err = getDBWriter(gc.Processor)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	err = ss.Init(c.ClusterName, gc.ProcessorArgs)
-	if err != nil {
-		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
-		return
-	}
+	log.Infof("Fetching stat information for cluster %s, version %s", c.ClusterName, c.OSVersion)
+	sd := c.fetchStatDetails(sg)
 
 	// divide stats into buckets based on update interval
 	log.Infof("Calculating stat refresh times for cluster %s", c.ClusterName)
-	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg)
+	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg, sd)
 
 	// initial priority PriorityQueue
 	startTime := time.Now()
@@ -269,6 +251,18 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		i++
 	}
 	heap.Init(&pq)
+
+	// Configure/initialize backend database writer
+	ss, err = getDBWriter(gc.Processor)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	err = ss.Init(c.ClusterName, gc.ProcessorArgs, sd)
+	if err != nil {
+		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
+		return
+	}
 
 	// loop collecting and pushing stats
 	log.Infof("Starting stat collection loop for cluster %s", c.ClusterName)
@@ -315,7 +309,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 }
 
 // map out sets of stats to collect by update interval
-func calcBuckets(c *Cluster, mui int, sg map[string]statGroup) []statTimeSet {
+func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]statDetail) []statTimeSet {
 	stm := make(map[time.Duration][]string)
 	for group := range sg {
 		absTime := sg[group].sgRefresh.absTime
@@ -330,13 +324,13 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup) []statTimeSet {
 		if multiplier == 0 {
 			log.Panicf("logic error: both multiplier and absTime are zero")
 		}
-		si := c.getStatInfo(sg[group].stats)
 		for _, stat := range sg[group].stats {
-			if !si[stat].valid {
+			sd := sd[stat]
+			if !sd.valid {
 				log.Warningf("skipping invalid stat: '%v'", stat)
 				continue
 			}
-			sui := si[stat].updateIntvl
+			sui := sd.updateIntvl
 			var d time.Duration
 			if sui == 0 {
 				// no defined update interval for this stat so use our default
@@ -367,10 +361,12 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup) []statTimeSet {
 // return a DBWriter for the given backend name
 func getDBWriter(sp string) (DBWriter, error) {
 	switch sp {
-	case "influxdb_plugin":
-		return GetInfluxDBWriter(), nil
 	case "discard_plugin":
 		return GetDiscardWriter(), nil
+	case "influxdb_plugin":
+		return GetInfluxDBWriter(), nil
+	case "prometheus_plugin":
+		return GetPrometheusWriter(), nil
 	default:
 		return nil, fmt.Errorf("unsupported backend plugin %q", sp)
 	}

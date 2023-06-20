@@ -5,15 +5,25 @@
 # log_file: /var/run/isi_data_insights_d.log
 # default log_level is INFO
 # log_level = "DEBUG"
+
+# Pluggable back end support
+# Default configuration uses InfluxDB (v1)
 stats_processor = "influxdb_plugin"
 # The first three arguments are the host/IP, port and database for the InfluxDB database
 # Optionally, pass the InfluxDB username and password as the fourth and fifth arguments, e.g.:
 # localhost 8086 isi_data_insights influxdbuser influxdbpass
 stats_processor_args = [ "localhost", "8086", "isi_data_insights" ]
 
+# Prometheus collector support
+# stats_processor = "prometheus_plugin"
+# The first (mandatory) argument is the port that the Prometheus server listens on
+# The optional second and third arguments are used for basic auth support
+# stats_processor_args = [ "8088" ]
+# stats_processor_args = [ "8088", "promuser", "prompass" ]
+
 # Alternative back end for testing
-# stat_processor = "discard_plugin"
-stat_processor_args = []
+# stats_processor = "discard_plugin"
+# stats_processor_args = []
 
 # If set to 0 or -1, authentication will be retried indefintely
 # There is still an exponential backoff that is clamped to a maximum of

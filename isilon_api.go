@@ -59,6 +59,19 @@ type StatResult struct {
 	Value       interface{} `json:"value"`
 }
 
+// statDetail holds the metadata information for a stat as retrieved from
+// the statistics '/keys' endpoint
+type statDetail struct {
+	//	key         string
+	valid       bool // flag if this stat doesn't exist on this cluster
+	description string
+	units       string
+	scope       string
+	datatype    string // JSON "type"
+	aggType     string // aggregation type - add enum if/when we use it
+	updateIntvl float64
+}
+
 const sessionPath = "/session/1/session"
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
@@ -66,7 +79,7 @@ const statInfoPath = "/platform/1/statistics/keys/"
 
 const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 
-// Set up Client etc.
+// initialize handles setting up the API client
 func (c *Cluster) initialize() error {
 	// already initialized?
 	if c.client != nil {
@@ -276,6 +289,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	return results, nil
 }
 
+// parseStatResult is currently very basic and just unmarshals the JSON API return
 func parseStatResult(res []byte) ([]StatResult, error) {
 	// XXX need to handle errors response here!
 	sa := struct {
@@ -288,31 +302,36 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 	return sa.Stats, nil
 }
 
-func (c *Cluster) getStatInfo(stats []string) map[string]statDetail {
+// fetchStatDetails gathers and returns the API-provided metadata for the given set of stats
+func (c *Cluster) fetchStatDetails(sg map[string]statGroup) map[string]statDetail {
 	badStat := statDetail{valid: false}
 
 	statInfo := make(map[string]statDetail)
-	for _, stat := range stats {
-		path := statInfoPath + stat
-		resp, err := c.restGet(path)
-		if err != nil {
-			log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c.ClusterName, stat, err)
-			statInfo[stat] = badStat
-			continue
+	for group := range sg {
+		stats := sg[group].stats
+		for _, stat := range stats {
+			path := statInfoPath + stat
+			resp, err := c.restGet(path)
+			if err != nil {
+				log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c.ClusterName, stat, err)
+				statInfo[stat] = badStat
+				continue
+			}
+			// parse stat info
+			detail, err := parseStatInfo(resp)
+			if err != nil {
+				log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c.ClusterName, stat, err)
+				statInfo[stat] = badStat
+				continue
+			}
+			statInfo[stat] = *detail
 		}
-		// parse stat info
-		detail, err := parseStatInfo(resp)
-		if err != nil {
-			log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c.ClusterName, stat, err)
-			statInfo[stat] = badStat
-			continue
-		}
-		statInfo[stat] = *detail
 	}
 	return statInfo
 }
 
-// parse out the return from the stat detail endpoint
+// parseStatInfo parses the OneFS API statistics metric metadata returned
+// from the statistics detail endpoint
 func parseStatInfo(res []byte) (*statDetail, error) {
 	var detail statDetail
 	var v interface{}
@@ -350,20 +369,22 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		// Extract stat update times out of "policies" if they exist
 		kp := k["policies"]
 		if kp == nil {
-			// 0 == no defined update interval
+			// 0 == no defined update interval i.e. on-demand
 			detail.updateIntvl = 0.0
-			continue
-		}
-		kpa := kp.([]interface{})
-		for _, pol := range kpa {
-			pol := pol.(map[string]interface{})
-			// we only want the current info, not the historical
-			if pol["persistent"] == false {
-				detail.updateIntvl = pol["interval"].(float64)
-				break
+		} else {
+			kpa := kp.([]interface{})
+			for _, pol := range kpa {
+				pol := pol.(map[string]interface{})
+				// we only want the current info, not the historical
+				if pol["persistent"] == false {
+					detail.updateIntvl = pol["interval"].(float64)
+					break
+				}
 			}
 		}
+		detail.description = k["description"].(string)
 		detail.units = k["units"].(string)
+		detail.scope = k["scope"].(string)
 		detail.datatype = k["type"].(string)
 		detail.aggType = k["aggregation_type"].(string)
 		// key := k["key"]
@@ -387,7 +408,7 @@ func isConnectionRefused(err error) bool {
 	return false
 }
 
-// get REST response from the API
+// restGet returns the REST response for the given endpoint from the API
 func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var err error
 	var resp *http.Response
