@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/influxdata/influxdb/client/v2"
 )
 
@@ -12,6 +13,7 @@ type InfluxDBSink struct {
 	cluster  string
 	c        client.Client
 	bpConfig client.BatchPointsConfig
+	badStats mapset.Set[string]
 }
 
 // GetInfluxDBWriter returns an InfluxDB DBWriter
@@ -71,8 +73,11 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		var ta []ptTags
 
 		if stat.ErrorCode != 0 {
-			log.Warningf("Unable to retrieve stat %v, error %v", stat.Key, stat.ErrorString)
-			// XXX handle errorcode 9 here to make stat invalid
+			if !s.badStats.Contains(stat.Key) {
+				log.Warningf("Unable to retrieve stat %v, error %v", stat.Key, stat.ErrorString)
+			}
+			// add it to the set of bad (unavailable) stats
+			s.badStats.Add(stat.Key)
 			continue
 		}
 		fa, ta, err = DecodeStat(s.cluster, stat)
