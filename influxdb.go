@@ -58,6 +58,7 @@ func (s *InfluxDBSink) Init(cluster string, args []string, _ map[string]statDeta
 		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
 	}
 	s.c = c
+	s.badStats = mapset.NewSet[string]()
 	return nil
 }
 
