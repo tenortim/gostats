@@ -53,11 +53,6 @@ active_stat_groups = [
 # present excessive load in internal testing, so set that here.
 min_update_interval_override = 5
 
-# max_retries (default 8) is the max number of times a failed request will be retried
-# before returning failure to the caller
-#
-# max_retries = 8
-
 # clusters in this section are queried for all stat groups
 # [[cluster]]
 # hostname = "mycluster.xyz.com"
