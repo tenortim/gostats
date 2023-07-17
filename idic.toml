@@ -1,11 +1,4 @@
 [global]
-# Parameters specified on the command line will supersede the parameters
-# in this section.
-# pid_file: /var/run/isi_data_insights_d.pid
-# log_file: /var/run/isi_data_insights_d.log
-# default log_level is INFO
-# log_level = "DEBUG"
-
 # Pluggable back end support
 # Default configuration uses InfluxDB (v1)
 stats_processor = "influxdb_plugin"
@@ -16,12 +9,12 @@ stats_processor_args = [ "localhost", "8086", "isi_data_insights" ]
 
 # Prometheus collector support
 # stats_processor = "prometheus_plugin"
-# The first (mandatory) argument is the port that the Prometheus server listens on
-# The optional second and third arguments are used for basic auth support
-# stats_processor_args = [ "8088" ]
-# stats_processor_args = [ "8088", "promuser", "prompass" ]
+# The port configuration has moved to the cluster section since it must be different for each cluster
+# The optional first and second arguments are used for basic auth support
+# stats_processor_args = []
+# stats_processor_args = ["promuser", "prompass" ]
 
-# Alternative back end for testing
+# Alternative back end which collects and discards the data (for testing)
 # stats_processor = "discard_plugin"
 # stats_processor_args = []
 
@@ -49,26 +42,32 @@ active_stat_groups = [
     "heat_total_stats",
 ]
 
-# The min_update_interval_override param provides ability to override the
-# minimum interval that the daemon will query for a set of stats. The purpose
-# of the minimum interval, which defaults to 30 seconds, is to prevent
-# the daemon's queries from putting too much stress on the cluster.
-# The default value is 30 seconds.
+# The min_update_interval_override parameter provides the ability to override the
+# minimum interval that the daemon will query for a set of stats.
+# By default, the collector queries the API and collects the stats in buckets based
+# on the stat metadata  update interval.
+# If there is concern over the load presented by collection, or a less frequent
+# collection interval is desired/required, this value can be increased.
 #
-# The most-frequent stat update interval is 5 seconds and that does not seem to
+# The lowest stat update interval is 5 seconds and that does not seem to
 # present excessive load in internal testing, so set that here.
 min_update_interval_override = 5
 
+# max_retries (default 8) is the max number of times a failed request will be retried
+# before returning failure to the caller
+#
+# max_retries = 8
+
 # clusters in this section are queried for all stat groups
-# clusters: [username1:password1@]<ip-or-host-address1>[:True|False]
-#	[[username2:password2]@<ip-or-host-address2>[:True|False]]
-#	[[username3:password3]@<ip-or-host-address3>[:True|False]]
+# [[cluster]]
+# hostname = "mycluster.xyz.com"
+# username = "statsuser"
+# password = "sekr1t"
+# verify-ssl = false
+# authtype = "basic-auth"
+# disabled = false
+# prometheus_port = 9090
 #	...
-# If you don't specify the username and password then you will be prompted
-# for them when the daemon starts up.
-# Use the optional True or False on the end to specify whether the cluster's
-# SSL certificate should be verified. If it is omitted then the default is
-# False (i.e. don't verify SSL cert).
 [[cluster]]
 hostname = "cse-s210-1.cse.isilon.com"
 username = "root"
@@ -78,9 +77,6 @@ verify-ssl = false
 # Definitions of the various groups of statistics to collect
 [[statgroup]]
 name = "cluster_cpu_stats"
-# The clusters (optional) param defines a list of clusters specific to this
-# group.
-# clusters: 10.25.69.74 10.25.69.75
 # update interval is in seconds or use *<number> to base the update interval
 # off each stat's collection interval (i.e. *2 == 2 times the collection
 # interval, *1 == * == 1 times the collection invterval of each stat)

@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.08"
+const Version = "0.09"
 const userAgent = "gostats/" + Version
 
 const (
@@ -258,7 +258,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		log.Error(err)
 		return
 	}
-	err = ss.Init(c.ClusterName, gc.ProcessorArgs, sd)
+	err = ss.Init(cluster, gc.ProcessorArgs, sd)
 	if err != nil {
 		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
 		return

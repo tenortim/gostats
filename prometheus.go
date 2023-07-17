@@ -81,7 +81,7 @@ func BasicAuth(handler http.HandlerFunc, username, password, realm string) http.
 
 // Init initializes an PrometheusSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *PrometheusSink) Init(cluster string, args []string, sd map[string]statDetail) error {
+func (s *PrometheusSink) Init(cluster clusterConf, args []string, sd map[string]statDetail) error {
 	var username, password string
 	authenticated := false
 	// args are host, port, database, and, optionally, username and password
@@ -94,16 +94,16 @@ func (s *PrometheusSink) Init(cluster string, args []string, sd map[string]statD
 		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 1 or 3", len(args))
 	}
 
-	s.cluster = cluster
-	port, err := strconv.ParseUint(args[0], 10, 16)
-	if err != nil {
-		return fmt.Errorf("prometheus plugin initialization failed - invalid port %v", args[0])
+	s.cluster = cluster.Hostname
+	port := cluster.PrometheusPort
+	if port == nil {
+		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", cluster.Hostname)
 	}
-	s.port = port
+	s.port = *port
 
 	if authenticated {
-		username = args[1]
-		password = args[2]
+		username = args[0]
+		password = args[1]
 	}
 
 	reg := prometheus.NewRegistry()
@@ -231,7 +231,7 @@ func (s *PrometheusSink) Init(cluster string, args []string, sd map[string]statD
 	} else {
 		http.Handle("/metrics", handler)
 	}
-	addr := fmt.Sprintf(":%d", port)
+	addr := fmt.Sprintf(":%d", s.port)
 	// XXX error handling for the server?
 	go func() { http.ListenAndServe(addr, nil) }()
 
