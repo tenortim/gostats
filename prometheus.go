@@ -223,7 +223,6 @@ func (s *PrometheusSink) Init(cluster clusterConf, args []string, sd map[string]
 	s.metricMap = metricMap
 
 	// Set up http server here
-	// XXX add basic auth support here is `authenticated` is true
 	handler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 	if authenticated {
 		handlefunc := BasicAuth(handler.ServeHTTP, username, password, "auth required to access metrics")
