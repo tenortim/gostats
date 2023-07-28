@@ -81,7 +81,7 @@ func BasicAuth(handler http.HandlerFunc, username, password, realm string) http.
 
 // Init initializes an PrometheusSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *PrometheusSink) Init(cluster clusterConf, args []string, sd map[string]statDetail) error {
+func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []string, sd map[string]statDetail) error {
 	var username, password string
 	authenticated := false
 	// args are host, port, database, and, optionally, username and password
@@ -94,10 +94,10 @@ func (s *PrometheusSink) Init(cluster clusterConf, args []string, sd map[string]
 		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 1 or 3", len(args))
 	}
 
-	s.cluster = cluster.Hostname
-	port := cluster.PrometheusPort
+	s.cluster = cluster
+	port := cluster_conf.PrometheusPort
 	if port == nil {
-		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", cluster.Hostname)
+		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", cluster)
 	}
 	s.port = *port
 

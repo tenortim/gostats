@@ -45,7 +45,7 @@ active_stat_groups = [
 # The min_update_interval_override parameter provides the ability to override the
 # minimum interval that the daemon will query for a set of stats.
 # By default, the collector queries the API and collects the stats in buckets based
-# on the stat metadata  update interval.
+# on the stat metadata update interval.
 # If there is concern over the load presented by collection, or a less frequent
 # collection interval is desired/required, this value can be increased.
 #
