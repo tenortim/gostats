@@ -84,14 +84,14 @@ func BasicAuth(handler http.HandlerFunc, username, password, realm string) http.
 func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []string, sd map[string]statDetail) error {
 	var username, password string
 	authenticated := false
-	// args are host, port, database, and, optionally, username and password
+	// args are either nothing, or, optionally, a username and password to support basic auth on the metrics endpoint
 	switch len(args) {
-	case 1:
+	case 0:
 		authenticated = false
-	case 3:
+	case 2:
 		authenticated = true
 	default:
-		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 1 or 3", len(args))
+		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 0 or 2", len(args))
 	}
 
 	s.cluster = cluster
@@ -223,16 +223,17 @@ func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []s
 	s.metricMap = metricMap
 
 	// Set up http server here
+	mux := http.NewServeMux()
 	handler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 	if authenticated {
 		handlefunc := BasicAuth(handler.ServeHTTP, username, password, "auth required to access metrics")
-		http.HandleFunc("/metrics", handlefunc)
+		mux.HandleFunc("/metrics", handlefunc)
 	} else {
-		http.Handle("/metrics", handler)
+		mux.Handle("/metrics", handler)
 	}
 	addr := fmt.Sprintf(":%d", s.port)
 	// XXX error handling for the server?
-	go func() { http.ListenAndServe(addr, nil) }()
+	go func() { http.ListenAndServe(addr, mux) }()
 
 	return nil
 }
