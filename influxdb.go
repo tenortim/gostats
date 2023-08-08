@@ -75,7 +75,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 
 		if stat.ErrorCode != 0 {
 			if !s.badStats.Contains(stat.Key) {
-				log.Warningf("Unable to retrieve stat %v, error %v", stat.Key, stat.ErrorString)
+				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, s.cluster, stat.ErrorString)
 			}
 			// add it to the set of bad (unavailable) stats
 			s.badStats.Add(stat.Key)
