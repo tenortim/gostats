@@ -79,6 +79,70 @@ func BasicAuth(handler http.HandlerFunc, username, password, realm string) http.
 	}
 }
 
+type http_sd_conf struct {
+	ListenIP    string
+	ListenPorts []uint64
+}
+
+func (h *http_sd_conf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var listen_addrs string
+	w.Header().Set("Content-Type", "application/json")
+	sdstr1 := `[
+	{
+		"targets": [`
+	for i, port := range h.ListenPorts {
+		if i != 0 {
+			listen_addrs += ", "
+		}
+		listen_addrs += fmt.Sprintf("%s:%d", h.ListenIP, port)
+	}
+	sdstr2 := `],
+		"labels": {
+			"__meta_prometheus_job": "isilon"
+		}
+	}
+]`
+	w.Write([]byte(sdstr1 + listen_addrs + sdstr2))
+}
+
+// Start an http listener in a goroutine to server Prometheus HTTP SD requests
+func start_prom_sd_listener(conf tomlConfig) error {
+	var listen_addr string
+	// Discover local (listener) IP address
+	// Prefer IPv4 addresses
+	// If multiple are found default to the first
+	ips, err := ListExternalIPs()
+	if err != nil {
+		return fmt.Errorf("unable to list external IP addresses: %v", err)
+	}
+	for _, ip := range ips {
+		if IsIPv4(ip.String()) {
+			listen_addr = ip.String()
+		}
+	}
+	if listen_addr == "" {
+		// No IPv4 addresses found, choose the first IPv6 address
+		if len(ips) == 0 {
+			return fmt.Errorf("no valid external IP addresses found")
+		}
+		listen_addr = ips[0].String()
+	}
+	var prom_ports []uint64
+	for _, cl := range conf.Clusters {
+		if cl.PrometheusPort != nil {
+			prom_ports = append(prom_ports, *cl.PrometheusPort)
+		}
+	}
+	h := http_sd_conf{ListenIP: listen_addr, ListenPorts: prom_ports}
+	// Create listener
+	mux := http.NewServeMux()
+	mux.Handle("/", &h)
+	addr := fmt.Sprintf(":%d", conf.PromSD.SDport)
+	// XXX error handling for the server?
+	go func() { http.ListenAndServe(addr, mux) }()
+	return nil
+}
+
 // Init initializes an PrometheusSink so that points can be written
 // The array of argument strings comprises host, port, database
 func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []string, sd map[string]statDetail) error {

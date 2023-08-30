@@ -53,6 +53,12 @@ active_stat_groups = [
 # present excessive load in internal testing, so set that here.
 min_update_interval_override = 5
 
+# If using prometheus, the collector supports the Prometheus "http SD" service
+# discovery mechanism.
+[prom_http_sd]
+enabled = false
+sd_port = 9999
+
 # clusters in this section are queried for all stat groups
 # [[cluster]]
 # hostname = "mycluster.xyz.com"

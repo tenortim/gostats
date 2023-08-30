@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.11"
+const Version = "0.12"
 const userAgent = "gostats/" + Version
 
 const (
@@ -22,6 +22,13 @@ const (
 	authtypeSession = "session"
 )
 const defaultAuthType = authtypeSession
+
+// Config file plugin names
+const (
+	DISCARD_PLUGIN_NAME = "discard_plugin"
+	INFLUX_PLUGIN_NAME  = "influxdb_plugin"
+	PROM_PLUGIN_NAME    = "prometheus_plugin"
+)
 
 // parsed/populated stat structures
 type sgRefresh struct {
@@ -102,6 +109,10 @@ func main() {
 	log.Info("Parsing stat groups and stats")
 	sg := parseStatConfig(conf)
 	// log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
+
+	if conf.Global.Processor == PROM_PLUGIN_NAME && conf.PromSD.Enabled {
+		start_prom_sd_listener(conf)
+	}
 
 	// start collecting from each defined and enabled cluster
 	var wg sync.WaitGroup
@@ -361,11 +372,11 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 // return a DBWriter for the given backend name
 func getDBWriter(sp string) (DBWriter, error) {
 	switch sp {
-	case "discard_plugin":
+	case DISCARD_PLUGIN_NAME:
 		return GetDiscardWriter(), nil
-	case "influxdb_plugin":
+	case INFLUX_PLUGIN_NAME:
 		return GetInfluxDBWriter(), nil
-	case "prometheus_plugin":
+	case PROM_PLUGIN_NAME:
 		return GetPrometheusWriter(), nil
 	default:
 		return nil, fmt.Errorf("unsupported backend plugin %q", sp)

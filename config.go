@@ -19,6 +19,7 @@ const defaultMaxRetries = 8
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
+	PromSD     promSdConf      `toml:"prom_http_sd"`
 	Clusters   []clusterConf   `toml:"cluster"`
 	StatGroups []statGroupConf `toml:"statgroup"`
 }
@@ -29,6 +30,11 @@ type globalConfig struct {
 	ActiveStatGroups []string `toml:"active_stat_groups"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 	maxRetries       int      `toml:"max_retries"`
+}
+
+type promSdConf struct {
+	Enabled bool
+	SDport  uint64 `toml:"sd_port"`
 }
 
 type clusterConf struct {
