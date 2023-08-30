@@ -98,7 +98,7 @@ func (h *http_sd_conf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	sdstr2 := `],
 		"labels": {
-			"__meta_prometheus_job": "isilon"
+			"__meta_prometheus_job": "isilon_stats"
 		}
 	}
 ]`
