@@ -105,6 +105,12 @@ func main() {
 	conf := mustReadConfig()
 	log.Info("Successfully read config file")
 
+	// Ensure the config contains at least one stat to poll
+	if len(conf.StatGroups) == 0 {
+		log.Errorf("No stat groups found in config file. Unable to start collection")
+		return
+	}
+
 	// Determine which stats to poll
 	log.Info("Parsing stat groups and stats")
 	sg := parseStatConfig(conf)
@@ -248,6 +254,10 @@ func statsloop(cluster_conf clusterConf, gc globalConfig, sg map[string]statGrou
 	// divide stats into buckets based on update interval
 	log.Infof("Calculating stat refresh times for cluster %s", c.ClusterName)
 	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg, sd)
+	if len(statBuckets) == 0 {
+		log.Errorf("No stat buckets found for cluster %s. Check your config file", c.ClusterName)
+		return
+	}
 
 	// initial priority PriorityQueue
 	startTime := time.Now()
