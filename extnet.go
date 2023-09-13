@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-func IsValidInterface(ifname string) bool {
+// IsExternalInterface uses a string prefix list to weed out known internal interface names
+func IsExternalInterface(ifname string) bool {
 	switch {
 	case strings.HasPrefix(ifname, "docker"):
 		return false
@@ -25,6 +26,7 @@ func IsIPv6(address string) bool {
 	return strings.Count(address, ":") >= 2
 }
 
+// ListExternalIPs returns a list of IP addresses on externally-reachable interfaces
 func ListExternalIPs() ([]net.IP, error) {
 	var ips []net.IP
 	ifaces, err := net.Interfaces()
@@ -32,6 +34,10 @@ func ListExternalIPs() ([]net.IP, error) {
 		return nil, fmt.Errorf("failed to enumerate network interfaces: %v", err)
 	}
 	for _, i := range ifaces {
+		if !IsExternalInterface(i.Name) {
+			log.Debugf("skipping internal interface %s", i.Name)
+			continue
+		}
 		addrs, err := i.Addrs()
 		if err != nil {
 			return nil, fmt.Errorf("failed to enumerate network addresses: %v", err)
@@ -46,7 +52,7 @@ func ListExternalIPs() ([]net.IP, error) {
 			default:
 				continue
 			}
-			if ip.IsGlobalUnicast() && IsValidInterface(i.Name) {
+			if ip.IsGlobalUnicast() {
 				ips = append(ips, ip)
 			}
 		}
