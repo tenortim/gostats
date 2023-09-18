@@ -55,8 +55,12 @@ min_update_interval_override = 5
 
 # If using prometheus, the collector supports the Prometheus "http SD" service
 # discovery mechanism.
+#
+# The hostname/IP for the discovery service can be hard coded via listen_addr below
+# otherwise the code will attempt to find and external public IP address
 [prom_http_sd]
 enabled = false
+# listen_addr = "external_hostname"
 sd_port = 9999
 
 # clusters in this section are queried for all stat groups

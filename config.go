@@ -33,8 +33,9 @@ type globalConfig struct {
 }
 
 type promSdConf struct {
-	Enabled bool
-	SDport  uint64 `toml:"sd_port"`
+	Enabled    bool
+	ListenAddr string `toml:"listen_addr"`
+	SDport     uint64 `toml:"sd_port"`
 }
 
 type clusterConf struct {

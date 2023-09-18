@@ -105,15 +105,16 @@ func (h *http_sd_conf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(sdstr1 + listen_addrs + sdstr2))
 }
 
-// Start an http listener in a goroutine to server Prometheus HTTP SD requests
-func start_prom_sd_listener(conf tomlConfig) error {
-	var listen_addr string
+// find_external_addr attempt to find a reachable external IP address for the system
+func find_external_addr() (string, error) {
 	// Discover local (listener) IP address
 	// Prefer IPv4 addresses
 	// If multiple are found default to the first
+	var listen_addr string
+
 	ips, err := ListExternalIPs()
 	if err != nil {
-		return fmt.Errorf("unable to list external IP addresses: %v", err)
+		return "", fmt.Errorf("unable to list external IP addresses: %v", err)
 	}
 	for _, ip := range ips {
 		if IsIPv4(ip.String()) {
@@ -123,9 +124,23 @@ func start_prom_sd_listener(conf tomlConfig) error {
 	if listen_addr == "" {
 		// No IPv4 addresses found, choose the first IPv6 address
 		if len(ips) == 0 {
-			return fmt.Errorf("no valid external IP addresses found")
+			return "", fmt.Errorf("no valid external IP addresses found")
 		}
 		listen_addr = ips[0].String()
+	}
+	return listen_addr, nil
+}
+
+// Start an http listener in a goroutine to server Prometheus HTTP SD requests
+func start_prom_sd_listener(conf tomlConfig) error {
+	var listen_addr string
+	var err error
+	listen_addr = conf.PromSD.ListenAddr
+	if listen_addr == "" {
+		listen_addr, err = find_external_addr()
+		if err != nil {
+			return err
+		}
 	}
 	var prom_ports []uint64
 	for _, cl := range conf.Clusters {
@@ -138,8 +153,8 @@ func start_prom_sd_listener(conf tomlConfig) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", &h)
 	addr := fmt.Sprintf(":%d", conf.PromSD.SDport)
-	// XXX error handling for the server?
-	go func() { http.ListenAndServe(addr, mux) }()
+	// XXX improve error handling here?
+	go func() { log.Error(http.ListenAndServe(addr, mux)) }()
 	return nil
 }
 
@@ -296,8 +311,8 @@ func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []s
 		mux.Handle("/metrics", handler)
 	}
 	addr := fmt.Sprintf(":%d", s.port)
-	// XXX error handling for the server?
-	go func() { http.ListenAndServe(addr, mux) }()
+	// XXX improve error handling here?
+	go func() { log.Error(http.ListenAndServe(addr, mux)) }()
 
 	return nil
 }
