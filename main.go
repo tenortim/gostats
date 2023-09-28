@@ -240,7 +240,7 @@ func statsloop(cluster_conf clusterConf, gc globalConfig, sg map[string]statGrou
 		Hostname:   cluster_conf.Hostname,
 		Port:       8080,
 		VerifySSL:  cluster_conf.SSLCheck,
-		maxRetries: gc.maxRetries,
+		maxRetries: gc.MaxRetries,
 	}
 	if err = c.Connect(); err != nil {
 		log.Errorf("Connection to cluster %s failed: %v", c.Hostname, err)

@@ -29,7 +29,7 @@ type globalConfig struct {
 	ProcessorArgs    []string `toml:"stats_processor_args"`
 	ActiveStatGroups []string `toml:"active_stat_groups"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
-	maxRetries       int      `toml:"max_retries"`
+	MaxRetries       int      `toml:"max_retries"`
 }
 
 type promSdConf struct {
@@ -61,7 +61,7 @@ type statGroupConf struct {
 // mustReadConfig reads the config file or exits the program is this fails
 func mustReadConfig() tomlConfig {
 	var conf tomlConfig
-	conf.Global.maxRetries = defaultMaxRetries
+	conf.Global.MaxRetries = defaultMaxRetries
 	conf.Global.MinUpdateInvtl = defaultMinUpdateInterval
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
@@ -71,8 +71,8 @@ func mustReadConfig() tomlConfig {
 		os.Exit(1)
 	}
 	// If retries is 0 or negative, make it effectively infinite
-	if conf.Global.maxRetries <= 0 {
-		conf.Global.maxRetries = math.MaxInt
+	if conf.Global.MaxRetries <= 0 {
+		conf.Global.MaxRetries = math.MaxInt
 	}
 
 	return conf
