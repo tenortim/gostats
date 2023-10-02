@@ -16,6 +16,20 @@ The Grafana dashboards provided with the data insights project may be used witho
 * The example configuration file is configured to send several sets of stats to InfluxDB via the influxdb.go backend. If you intend to use the default backend, you will need to install InfluxDB. InfluxDB can be installed locally (i.e on the same system as the connector) or remotely (i.e. on a different system). Follow the [install instructions](https://portal.influxdata.com/downloads/) but install "indluxdb" not "influxdb2"
 
 * If you installed InfluxDB to somewhere other than localhost and/or port 8086, then you'll also need to update the configuration file with the address and port of the InfluxDB service.
+* If using InfluxDB, you must create the "isi_data_insights" database before running the collectors:
+
+    ```sh
+     influx -host localhost -port 8086 -execute 'create database isi_data_insights'
+     ```
+
+* Create a local user on each cluster and grant the required privileges:
+
+    ```sh
+    isi auth users create --email=stat.user@mydomain.com --enabled=true --name=statsreader --password='s3kret_pass'
+    isi auth roles create --name='StatsReader' --description='Role to allow reading of statistics via PAPI'
+    isi auth roles modify StatsReader --add-priv=ISI_PRIV_STATISTICS --add-priv-ro=ISI_PRIV_LOGIN_PAPI --add-user=statsreader
+    ```
+
 * To run the connector:
 
     ```sh
