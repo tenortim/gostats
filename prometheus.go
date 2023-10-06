@@ -79,22 +79,22 @@ func BasicAuth(handler http.HandlerFunc, username, password, realm string) http.
 	}
 }
 
-type http_sd_conf struct {
+type httpSdConf struct {
 	ListenIP    string
 	ListenPorts []uint64
 }
 
-func (h *http_sd_conf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var listen_addrs string
+func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var listenAddrs string
 	w.Header().Set("Content-Type", "application/json")
 	sdstr1 := `[
 	{
 		"targets": [`
 	for i, port := range h.ListenPorts {
 		if i != 0 {
-			listen_addrs += ", "
+			listenAddrs += ", "
 		}
-		listen_addrs += fmt.Sprintf("\"%s:%d\"", h.ListenIP, port)
+		listenAddrs += fmt.Sprintf("\"%s:%d\"", h.ListenIP, port)
 	}
 	sdstr2 := `],
 		"labels": {
@@ -102,15 +102,15 @@ func (h *http_sd_conf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 ]`
-	w.Write([]byte(sdstr1 + listen_addrs + sdstr2))
+	w.Write([]byte(sdstr1 + listenAddrs + sdstr2))
 }
 
-// find_external_addr attempt to find a reachable external IP address for the system
-func find_external_addr() (string, error) {
+// findExternalAddr attempt to find a reachable external IP address for the system
+func findExternalAddr() (string, error) {
 	// Discover local (listener) IP address
 	// Prefer IPv4 addresses
 	// If multiple are found default to the first
-	var listen_addr string
+	var listenAddr string
 
 	ips, err := ListExternalIPs()
 	if err != nil {
@@ -118,37 +118,37 @@ func find_external_addr() (string, error) {
 	}
 	for _, ip := range ips {
 		if IsIPv4(ip.String()) {
-			listen_addr = ip.String()
+			listenAddr = ip.String()
 		}
 	}
-	if listen_addr == "" {
+	if listenAddr == "" {
 		// No IPv4 addresses found, choose the first IPv6 address
 		if len(ips) == 0 {
 			return "", fmt.Errorf("no valid external IP addresses found")
 		}
-		listen_addr = ips[0].String()
+		listenAddr = ips[0].String()
 	}
-	return listen_addr, nil
+	return listenAddr, nil
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
-func start_prom_sd_listener(conf tomlConfig) error {
-	var listen_addr string
+func startPromSdListener(conf tomlConfig) error {
+	var listenAddr string
 	var err error
-	listen_addr = conf.PromSD.ListenAddr
-	if listen_addr == "" {
-		listen_addr, err = find_external_addr()
+	listenAddr = conf.PromSD.ListenAddr
+	if listenAddr == "" {
+		listenAddr, err = findExternalAddr()
 		if err != nil {
 			return err
 		}
 	}
-	var prom_ports []uint64
+	var promPorts []uint64
 	for _, cl := range conf.Clusters {
 		if cl.PrometheusPort != nil {
-			prom_ports = append(prom_ports, *cl.PrometheusPort)
+			promPorts = append(promPorts, *cl.PrometheusPort)
 		}
 	}
-	h := http_sd_conf{ListenIP: listen_addr, ListenPorts: prom_ports}
+	h := httpSdConf{ListenIP: listenAddr, ListenPorts: promPorts}
 	// Create listener
 	mux := http.NewServeMux()
 	mux.Handle("/", &h)
@@ -160,7 +160,7 @@ func start_prom_sd_listener(conf tomlConfig) error {
 
 // Init initializes an PrometheusSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []string, sd map[string]statDetail) error {
+func (s *PrometheusSink) Init(clusterName string, cluster clusterConf, args []string, sd map[string]statDetail) error {
 	var username, password string
 	authenticated := false
 	// args are either nothing, or, optionally, a username and password to support basic auth on the metrics endpoint
@@ -173,10 +173,10 @@ func (s *PrometheusSink) Init(cluster string, cluster_conf clusterConf, args []s
 		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 0 or 2", len(args))
 	}
 
-	s.cluster = cluster
-	port := cluster_conf.PrometheusPort
+	s.cluster = clusterName
+	port := cluster.PrometheusPort
 	if port == nil {
-		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", cluster)
+		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", clusterName)
 	}
 	s.port = *port
 

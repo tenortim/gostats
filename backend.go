@@ -67,7 +67,7 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 			default:
 				fields["value"] = vv
 			}
-			if drop_stat(&fields) {
+			if isInvalidStat(&fields) {
 				log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
 			} else {
 				fa = append(fa, fields)
@@ -93,7 +93,7 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 				fields[km] = vm
 			}
 		}
-		if drop_stat(&fields) {
+		if isInvalidStat(&fields) {
 			log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
 		} else {
 			fa = append(fa, fields)
@@ -112,12 +112,12 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 	return fa, ta, nil
 }
 
-// drop_stat checks the supplied fields and returns a boolean which, if true, specifies that
+// isInvalidStat checks the supplied fields and returns a boolean which, if true, specifies that
 // this statistic should be dropped.
 //
 // Some statistics (specifically, SMB change notify) have unusual semantics that can result in
 // misleadingly large latency values.
-func drop_stat(fields *ptFields) bool {
+func isInvalidStat(fields *ptFields) bool {
 	if (*fields)["op_name"] == "change_notify" || (*fields)["op_name"] == "read_directory_change" {
 		return true
 	}

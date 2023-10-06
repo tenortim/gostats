@@ -117,7 +117,7 @@ func main() {
 	// log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
 
 	if conf.Global.Processor == PROM_PLUGIN_NAME && conf.PromSD.Enabled {
-		start_prom_sd_listener(conf)
+		startPromSdListener(conf)
 	}
 
 	// start collecting from each defined and enabled cluster
@@ -217,29 +217,29 @@ type statTimeSet struct {
 	stats    []string
 }
 
-func statsloop(cluster_conf clusterConf, gc globalConfig, sg map[string]statGroup) {
+func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 	var err error
 	var ss DBWriter
 
 	// Connect to the cluster
-	authtype := cluster_conf.AuthType
+	authtype := cluster.AuthType
 	if authtype == "" {
-		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster_conf.Hostname, authtypeSession)
+		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
 		authtype = defaultAuthType
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
-		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cluster_conf.Hostname, authtypeSession)
+		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cluster.Hostname, authtypeSession)
 		authtype = defaultAuthType
 	}
 	c := &Cluster{
 		AuthInfo: AuthInfo{
-			Username: cluster_conf.Username,
-			Password: cluster_conf.Password,
+			Username: cluster.Username,
+			Password: cluster.Password,
 		},
 		AuthType:   authtype,
-		Hostname:   cluster_conf.Hostname,
+		Hostname:   cluster.Hostname,
 		Port:       8080,
-		VerifySSL:  cluster_conf.SSLCheck,
+		VerifySSL:  cluster.SSLCheck,
 		maxRetries: gc.MaxRetries,
 	}
 	if err = c.Connect(); err != nil {
@@ -279,7 +279,7 @@ func statsloop(cluster_conf clusterConf, gc globalConfig, sg map[string]statGrou
 		log.Error(err)
 		return
 	}
-	err = ss.Init(c.ClusterName, cluster_conf, gc.ProcessorArgs, sd)
+	err = ss.Init(c.ClusterName, cluster, gc.ProcessorArgs, sd)
 	if err != nil {
 		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
 		return
