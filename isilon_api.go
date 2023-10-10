@@ -51,12 +51,12 @@ type Cluster struct {
 // The Value field can be a simple int/float, or it can be a dictionary
 // or an array of dictionaries (e.g. protostats results)
 type StatResult struct {
-	Devid       int         `json:"devid"`
-	ErrorString string      `json:"error"`
-	ErrorCode   int         `json:"error_code"`
-	Key         string      `json:"key"`
-	UnixTime    int64       `json:"time"`
-	Value       interface{} `json:"value"`
+	Devid       int    `json:"devid"`
+	ErrorString string `json:"error"`
+	ErrorCode   int    `json:"error_code"`
+	Key         string `json:"key"`
+	UnixTime    int64  `json:"time"`
+	Value       any    `json:"value"`
 }
 
 // statDetail holds the metadata information for a stat as retrieved from
@@ -167,7 +167,7 @@ func (c *Cluster) Authenticate() error {
 	}
 	// parse out time limit so we can reauth when necessary
 	dec := json.NewDecoder(resp.Body)
-	var ar map[string]interface{}
+	var ar map[string]any
 	err = dec.Decode(&ar)
 	if err != nil {
 		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
@@ -206,7 +206,7 @@ func (c *Cluster) Authenticate() error {
 // GetClusterConfig pulls information from the cluster config API
 // endpoint, including the actual cluster name
 func (c *Cluster) GetClusterConfig() error {
-	var v interface{}
+	var v any
 	resp, err := c.restGet(configPath)
 	if err != nil {
 		return err
@@ -215,9 +215,9 @@ func (c *Cluster) GetClusterConfig() error {
 	if err != nil {
 		return err
 	}
-	m := v.(map[string]interface{})
+	m := v.(map[string]any)
 	version := m["onefs_version"]
-	r := version.(map[string]interface{})
+	r := version.(map[string]any)
 	release := r["version"]
 	rel := release.(string)
 	c.OSVersion = rel
@@ -334,7 +334,7 @@ func (c *Cluster) fetchStatDetails(sg map[string]statGroup) map[string]statDetai
 // from the statistics detail endpoint
 func parseStatInfo(res []byte) (*statDetail, error) {
 	var detail statDetail
-	var v interface{}
+	var v any
 
 	// Unmarshal the JSON return first
 	err := json.Unmarshal(res, &v)
@@ -342,39 +342,39 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		return nil, err
 	}
 
-	m := v.(map[string]interface{})
+	m := v.(map[string]any)
 	// Did the API throw an error?
 	if ea, ok := m["errors"]; ok {
 		// handle API error return here
 		// I've never seen more than one error in the array, but we handle it anyway
-		ea := ea.([]interface{})
+		ea := ea.([]any)
 		es := bytes.NewBufferString("Error: ")
 		for _, e := range ea {
-			e := e.(map[string]interface{})
+			e := e.(map[string]any)
 			es.WriteString(fmt.Sprintf("code: %q, message: %q", e["code"], e["message"]))
 		}
 		return nil, fmt.Errorf("%s", es.String())
 	}
 
-	var keys interface{}
+	var keys any
 	var ok bool
 	if keys, ok = m["keys"]; !ok {
 		// If we didn't get an error above, we should have got a valid return
 		return nil, fmt.Errorf("unexpected JSON return %#v", m)
 	}
-	ka := keys.([]interface{})
+	ka := keys.([]any)
 	for _, k := range ka {
 		// pull info from key
-		k := k.(map[string]interface{})
+		k := k.(map[string]any)
 		// Extract stat update times out of "policies" if they exist
 		kp := k["policies"]
 		if kp == nil {
 			// 0 == no defined update interval i.e. on-demand
 			detail.updateIntvl = 0.0
 		} else {
-			kpa := kp.([]interface{})
+			kpa := kp.([]any)
 			for _, pol := range kpa {
-				pol := pol.(map[string]interface{})
+				pol := pol.(map[string]any)
 				// we only want the current info, not the historical
 				if pol["persistent"] == false {
 					detail.updateIntvl = pol["interval"].(float64)

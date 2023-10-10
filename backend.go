@@ -5,7 +5,7 @@ import (
 )
 
 // types for the decoded fields and tags
-type ptFields map[string]interface{}
+type ptFields map[string]any
 type ptTags map[string]string
 
 // helper function
@@ -44,12 +44,12 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 		fields["value"] = val
 		fa = append(fa, fields)
 		ta = append(ta, baseTags)
-	case []interface{}:
+	case []any:
 		for _, vl := range val {
 			fields := make(ptFields)
 			tags := ptTagmapCopy(baseTags)
 			switch vv := vl.(type) {
-			case map[string]interface{}:
+			case map[string]any:
 				for km, vm := range vv {
 					// op_name, class_name are tags(indexed), not fields
 					if km == "op_name" || km == "class_name" {
@@ -74,7 +74,7 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 				ta = append(ta, tags)
 			}
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		fields := make(ptFields)
 		tags := ptTagmapCopy(baseTags)
 		for km, vm := range val {

@@ -33,7 +33,7 @@ func (pq PriorityQueue) Swap(i, j int) {
 }
 
 // Push adds an element to the end of the priority queue
-func (pq *PriorityQueue) Push(x interface{}) {
+func (pq *PriorityQueue) Push(x any) {
 	n := len(*pq)
 	item := x.(*Item)
 	item.index = n
@@ -41,7 +41,7 @@ func (pq *PriorityQueue) Push(x interface{}) {
 }
 
 // Pop removes the first element from priority queue
-func (pq *PriorityQueue) Pop() interface{} {
+func (pq *PriorityQueue) Pop() any {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
