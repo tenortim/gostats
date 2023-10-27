@@ -59,3 +59,29 @@ func ListExternalIPs() ([]net.IP, error) {
 	}
 	return ips, nil
 }
+
+// findExternalAddr attempt to find a reachable external IP address for the system
+func findExternalAddr() (string, error) {
+	// Discover local (listener) IP address
+	// Prefer IPv4 addresses
+	// If multiple are found default to the first
+	var listenAddr string
+
+	ips, err := ListExternalIPs()
+	if err != nil {
+		return "", fmt.Errorf("unable to list external IP addresses: %v", err)
+	}
+	for _, ip := range ips {
+		if IsIPv4(ip.String()) {
+			listenAddr = ip.String()
+		}
+	}
+	if listenAddr == "" {
+		// No IPv4 addresses found, choose the first IPv6 address
+		if len(ips) == 0 {
+			return "", fmt.Errorf("no valid external IP addresses found")
+		}
+		listenAddr = ips[0].String()
+	}
+	return listenAddr, nil
+}
