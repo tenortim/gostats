@@ -294,12 +294,6 @@ func (s *PrometheusSink) Init(clusterName string, cluster clusterConf, args []st
 		switch detail.datatype {
 		case "int32", "int64", "double", "uint64":
 			name := basename
-			// gauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			// 	Namespace: NAMESPACE,
-			// 	Name:      name,
-			// 	Help:      detail.description,
-			// }, labels)
-			// reg.MustRegister(gauge)
 			fields["value"] = promMetric{name: name, description: detail.description, labels: labels}
 			promstat := PrometheusStat{detail: detail, isMulti: false, fields: fields}
 			metricMap[stat] = &promstat
@@ -488,36 +482,14 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 		if expiration < 5 {
 			expiration = time.Duration(5 * time.Second)
 		}
-		if !promstat.isMulti {
-			sampleID := CreateSampleID(ta[0])
-			metric, ok := promstat.fields["value"]
-			if !ok {
-				log.Errorf("Unexpected missing value for stat %v", stat.Key)
-				panic("unexpected null pointer")
-			}
-			value, ok := stat.Value.(float64)
-			if !ok {
-				log.Errorf("Unexpected null value for stat %v", stat.Key)
-				log.Errorf("stats = %+v, fa = %+v", stat, fa)
-				panic("unexpected null value")
-			}
+		for i, fields := range fa {
+			sampleID := CreateSampleID(ta[i])
 			labels := make(prometheus.Labels)
 			labels["cluster"] = s.cluster
 			if stat.Devid != 0 {
 				labels["node"] = strconv.Itoa(stat.Devid)
 			}
-			// promstat.fields["value"].gauge.With(labels).Set(value)
-			sample := &Sample{
-				Labels:     labels,
-				Value:      value,
-				Timestamp:  time.Unix(stat.UnixTime, 0),
-				Expiration: now.Add(expiration),
-			}
-			s.addMetricFamily(sample, metric.name, metric.description, sampleID)
-			continue
-		}
-		// multivalued stat e.g. proto stats detail
-		for i, fields := range fa {
+			// multivalued stat e.g. proto stats detail
 			for k, v := range fields {
 				// ugly special case handling
 				// we drop "op_id" since there's no point creating a separate metric, but the API will still return it
@@ -525,16 +497,16 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 				if k == "op_id" {
 					continue
 				}
-				sampleID := CreateSampleID(ta[i])
 				metric, ok := promstat.fields[k]
 				if !ok {
 					log.Errorf("attempt to access invalid field at key %v", k)
 					panic("attempt to access invalid field")
 				}
-				labels := make(prometheus.Labels)
-				labels["cluster"] = s.cluster
-				if stat.Devid != 0 {
-					labels["node"] = strconv.Itoa(stat.Devid)
+				value, ok := v.(float64)
+				if !ok {
+					log.Errorf("cannot convert field value for stat %v to float64", stat.Key)
+					log.Errorf("stat = %+v, field = %+v", stat, k)
+					panic("unexpected unconvertable value")
 				}
 				for tag, value := range ta[i] {
 					log.Debugf("setting label %v to %v", tag, value)
@@ -545,14 +517,14 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 				// psi.gauge.With(labels).Set(v.(float64))
 				sample := &Sample{
 					Labels:     labels,
-					Value:      v.(float64),
+					Value:      value,
 					Timestamp:  time.Unix(stat.UnixTime, 0),
 					Expiration: now.Add(expiration),
 				}
 				s.addMetricFamily(sample, metric.name, metric.description, sampleID)
 			}
 		}
-	}
 
+	}
 	return nil
 }
