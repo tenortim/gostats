@@ -51,10 +51,11 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 			switch vv := vl.(type) {
 			case map[string]any:
 				for km, vm := range vv {
-					// op_name, class_name are tags(indexed), not fields
-					if km == "op_name" || km == "class_name" {
-						tags[km] = vm.(string)
-					} else {
+					// values of type string, e.g. op_name are converted to tags
+					switch vm := vm.(type) {
+					case string:
+						tags[km] = vm
+					default:
 						// Ugly code to fix broken unsigned op_id from the API
 						if km == "op_id" {
 							if vm.(float64) == (2 ^ 32 - 1) {
@@ -78,15 +79,14 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 		fields := make(ptFields)
 		tags := ptTagmapCopy(baseTags)
 		for km, vm := range val {
-			// op_name, class_name are tags(indexed), not fields
-			if km == "op_name" || km == "class_name" {
-				tags[km] = vm.(string)
-			} else {
+			// values of type string, e.g. op_name are converted to tags
+			switch vm := vm.(type) {
+			case string:
+				tags[km] = vm
+			default:
 				// Ugly code to fix broken unsigned op_id from the API
 				if km == "op_id" {
 					if vm.(float64) == (2 ^ 32 - 1) {
-						// JSON numbers are floats (in Javascript)
-						// cast so that InfluxDB doesn't get upset with the mismatch
 						vm = float64(-1)
 					}
 				}

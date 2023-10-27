@@ -39,21 +39,12 @@ type PrometheusSink struct {
 const NAMESPACE = "isilon"
 const BASESTATNAME = "stat"
 
-// promMetric holds the Prometheus metadata exposed by the "/metrics"
-// endpoint for a given partitioned performance stat within a dataset
-type promMetric struct {
-	name        string
-	description string
-	labels      []string
-}
-
 // PrometheusStat holds the necessary stat metadata for the Prometheus backend
 // this includes API stats metadata, whether the stats is multivalued and a mapping
 // of the stat fields to the internal detail (gauge pointer)
 type PrometheusStat struct {
-	detail  statDetail
-	isMulti bool
-	fields  map[string]promMetric
+	detail      statDetail
+	description string
 }
 
 // SampleID uniquely identifies a Sample
@@ -229,98 +220,11 @@ func (s *PrometheusSink) Init(clusterName string, cluster clusterConf, args []st
 
 	s.fam = make(map[string]*MetricFamily)
 
-	// protoStatsFields details the metric values that the protostats endpoint returns for each protocol
-	protoStatsFields := []string{
-		// tagged by op_name so no point in creating another (useless) metric
-		// "op_id",
-		"op_count", "op_rate", "in_min", "in_max", "in_rate", "in_std_dev", "out_min", "out_max", "out_rate", "out_std_dev", "time_min", "time_max", "time_avg", "time_std_dev",
-	}
-
-	// statCacheFields details the metric values that the OneFS cache statistics endpoint returns
-	statCacheFields := []string{
-		// L1 stats
-		//  data stats
-		//   read stats
-		"l1_data_read_start", "l1_data_read_hit", "l1_data_read_miss", "l1_data_read_wait",
-		//   async read stats
-		"l1_data_aread_start", "l1_data_aread_hit", "l1_data_aread_miss", "l1_data_aread_wait",
-		//   prefetch stats
-		"l1_data_prefetch_start", "l1_data_prefetch_hit",
-		//  metadata stats
-		//   read stats
-		"l1_meta_read_start", "l1_meta_read_hit", "l1_meta_read_miss", "l1_meta_read_wait",
-		//   prefetch stats
-		"l1_meta_prefetch_start", "l1_meta_prefetch_hit",
-
-		// L2 stats
-		//  data stats
-		//   read stats
-		"l2_data_read_start", "l2_data_read_hit", "l2_data_read_miss", "l2_data_read_wait",
-		//   prefetch stats
-		"l2_data_prefetch_start", "l2_data_prefetch_hit",
-		//  metadata stats
-		//   read stats
-		"l2_meta_read_start", "l2_meta_read_hit", "l2_meta_read_miss", "l2_meta_read_wait",
-		//   prefetch stats
-		"l2_meta_prefetch_start", "l2_meta_prefetch_hit",
-
-		// top level stats
-		"l1_prefetch_miss", "l2_prefetch_miss", "oldest_page_age",
-
-		// L3 stats
-		//  data stats
-		//   read stats
-		"l3_data_read_start", "l3_data_read_hit", "l3_data_read_miss", "l3_data_read_wait",
-		//   prefetch stats
-		"l3_data_prefetch_start", "l3_data_prefetch_hit",
-		//  metadata stats
-		//   read stats
-		"l3_meta_read_start", "l3_meta_read_hit", "l3_meta_read_miss", "l3_meta_read_wait",
-		//   prefetch stats
-		"l3_meta_prefetch_start", "l3_meta_prefetch_hit",
-	}
-
 	metricMap := make(map[string]*PrometheusStat)
 
-	clusterLabels := []string{"cluster"}
-	nodeLabels := []string{"cluster", "node"}
 	for stat, detail := range sd {
-		labels := clusterLabels
-		if detail.scope == "node" {
-			labels = nodeLabels
-		}
-		basename := promStatBasename(stat)
-		fields := make(map[string]promMetric)
-		switch detail.datatype {
-		case "int32", "int64", "double", "uint64":
-			name := basename
-			fields["value"] = promMetric{name: name, description: detail.description, labels: labels}
-			promstat := PrometheusStat{detail: detail, isMulti: false, fields: fields}
-			metricMap[stat] = &promstat
-		case "stats_proto_opstat_list":
-			slabels := make([]string, len(labels))
-			copy(slabels, labels)
-			// break out stats have class and op name fields
-			// total stats do not
-			if !strings.HasSuffix(stat, ".total") {
-				slabels = append(labels, "class_name", "op_name")
-			}
-			for _, field := range protoStatsFields {
-				name := promStatNameWithField(basename, field)
-				fields[field] = promMetric{name: name, description: detail.description, labels: slabels}
-			}
-			promstat := PrometheusStat{detail: detail, isMulti: true, fields: fields}
-			metricMap[stat] = &promstat
-		case "stats_cache_data_v2":
-			for _, field := range statCacheFields {
-				name := promStatNameWithField(basename, field)
-				fields[field] = promMetric{name: name, description: detail.description, labels: labels}
-			}
-			promstat := PrometheusStat{detail: detail, isMulti: true, fields: fields}
-			metricMap[stat] = &promstat
-		default:
-			log.Errorf("Unknown metric type %v for stat %s detail %+v, skipping", detail.datatype, stat, detail)
-		}
+		promstat := PrometheusStat{detail: detail, description: detail.description}
+		metricMap[stat] = &promstat
 	}
 	s.metricMap = metricMap
 
@@ -453,7 +357,10 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 		var ta []ptTags
 		var err error
 
-		promstat := s.metricMap[stat.Key]
+		promstat, ok := s.metricMap[stat.Key]
+		if !ok {
+			log.Fatalf("unable to find metric map entry for stat %+v", stat)
+		}
 		if !promstat.detail.valid {
 			log.Debugf("skipping invalid stat %v", stat.Key)
 			continue
@@ -489,18 +396,24 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 			if stat.Devid != 0 {
 				labels["node"] = strconv.Itoa(stat.Devid)
 			}
-			// multivalued stat e.g. proto stats detail
+			// is this a multi-valued stat e.g., proto stats detail?
+			multiValued := false
+			if len(fields) > 1 {
+				multiValued = true
+			}
+			basename := promStatBasename(stat.Key)
 			for k, v := range fields {
+				var name string
 				// ugly special case handling
 				// we drop "op_id" since there's no point creating a separate metric, but the API will still return it
 				// so for now, hardcode it to be skipped
 				if k == "op_id" {
 					continue
 				}
-				metric, ok := promstat.fields[k]
-				if !ok {
-					log.Errorf("attempt to access invalid field at key %v", k)
-					panic("attempt to access invalid field")
+				if !multiValued {
+					name = basename
+				} else {
+					name = promStatNameWithField(basename, k)
 				}
 				value, ok := v.(float64)
 				if !ok {
@@ -513,15 +426,14 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 					labels[tag] = value
 				}
 
-				log.Debugf("setting metric %v to %v", metric.name, v.(float64))
-				// psi.gauge.With(labels).Set(v.(float64))
+				log.Debugf("setting metric %v to %v", name, v.(float64))
 				sample := &Sample{
 					Labels:     labels,
 					Value:      value,
 					Timestamp:  time.Unix(stat.UnixTime, 0),
 					Expiration: now.Add(expiration),
 				}
-				s.addMetricFamily(sample, metric.name, metric.description, sampleID)
+				s.addMetricFamily(sample, name, promstat.description, sampleID)
 			}
 		}
 
