@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.16 - Sat Oct 28 15:42:34 2023 -0700
+
+### Security
+
+- Updated all dependencies to latest versions
+
 ## v0.15 - Fri Oct 27 15:49:22 2023 -0700
 
 ### Major changes
@@ -50,7 +56,7 @@ Set job type to "isilon_stats" instead of "isilon" so we can distinguish between
 
 ### New features
 
-- Add support for Prometheus HTTP SD discovery
+- Added support for Prometheus HTTP SD discovery
 
 ## v0.11 - Tue Aug 1 17:04:51 2023 -0700
 
@@ -64,25 +70,25 @@ Set job type to "isilon_stats" instead of "isilon" so we can distinguish between
 
 ### Bug fixes
 
-- Fix cluster name breakage from Prometheus work
+- Fixed cluster name breakage from Prometheus work
 
 ## v0.09 - Mon Jul 17 09:50:39 2023 -0700
 
 ### Major changes
 
-- Move prometheus listen port to cluster config
+- Moved prometheus listen port to cluster config
   - Each cluster needs to run a Prometheus metrics listener on a separate port. We could use a "base port" and increment but that would make it hard to know which port maps to which cluster over time.
 
 ### Bug fixes
 
-- fix missing initialization of bad stat set
-- Squelch repeated error for missing stat info
+- fixed missing initialization of bad stat set
+- Squelched repeated error for missing stat info
 
 ## v0.08 - Tue Jun 20 11:43:43 2023 -0700
 
 ### New features
 
-- Implement Prometheus back end support
+- Implemented Prometheus back end support
 
 ## v0.07 - Thu Sep 1 12:16:51 2022 -0700
 
@@ -93,11 +99,11 @@ Set job type to "isilon_stats" instead of "isilon" so we can distinguish between
 
 ### Bug fixes
 
-- Handle missing stats properly (#6)
+- Fixed "Handle missing stats properly" (#6)
   - If stats are not found while we are parsing the stat update times, remove them from the groups because a missing stat will cause retrieval of all other stats in a single request to fail.
-- Ignore change notify (#4)
+- Fixed "Ignore change notify" (#4)
   - Drop change notify stats so they don't pollute the latency statistics with misleading numbers
-- Remove deprectated stat from config
+- Removed deprectated stat from config
   - The `node.memory.cache` statistic was removed from OneFS (and was always zero for several releases prior to its removal). Removed from the sample config file.
 
 ## v0.06 - Thu Feb 25 11:26:45 2021 -0800
