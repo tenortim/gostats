@@ -190,28 +190,18 @@ func (p *PrometheusClient) Connect() error {
 
 // Init initializes an PrometheusSink so that points can be written
 // The array of argument strings comprises host, port, database
-func (s *PrometheusSink) Init(clusterName string, cluster clusterConf, args []string, sd map[string]statDetail) error {
-	authenticated := false
-	// args are either nothing, or, optionally, a username and password to support basic auth on the metrics endpoint
-	switch len(args) {
-	case 0:
-		authenticated = false
-	case 2:
-		authenticated = true
-	default:
-		return fmt.Errorf("prometheus Init() wrong number of args %d - expected 0 or 2", len(args))
-	}
-
+func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd map[string]statDetail) error {
 	s.cluster = clusterName
-	port := cluster.PrometheusPort
+	pc := config.Prometheus
+	port := config.Clusters[ci].PrometheusPort
 	if port == nil {
 		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", clusterName)
 	}
 	s.client.ListenPort = *port
 
-	if authenticated {
-		s.client.BasicUsername = args[0]
-		s.client.BasicPassword = args[1]
+	if pc.Authenticated {
+		s.client.BasicUsername = pc.Username
+		s.client.BasicPassword = pc.Password
 	}
 
 	registry := prometheus.NewRegistry()

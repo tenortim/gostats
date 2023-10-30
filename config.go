@@ -19,18 +19,34 @@ const defaultMaxRetries = 8
 // config file structures
 type tomlConfig struct {
 	Global     globalConfig
-	PromSD     promSdConf      `toml:"prom_http_sd"`
-	Clusters   []clusterConf   `toml:"cluster"`
-	StatGroups []statGroupConf `toml:"statgroup"`
+	InfluxDB   influxDBConfig   `toml:"influxdb"`
+	Prometheus prometheusConfig `toml:"prometheus"`
+	PromSD     promSdConf       `toml:"prom_http_sd"`
+	Clusters   []clusterConf    `toml:"cluster"`
+	StatGroups []statGroupConf  `toml:"statgroup"`
 }
 
 type globalConfig struct {
 	Version          string   `toml:"version"`
 	Processor        string   `toml:"stats_processor"`
-	ProcessorArgs    []string `toml:"stats_processor_args"`
-	ActiveStatGroups []string `toml:"active_stat_groups"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 	MaxRetries       int      `toml:"max_retries"`
+	ActiveStatGroups []string `toml:"active_stat_groups"`
+}
+
+type influxDBConfig struct {
+	Host          string `toml:"host"`
+	Port          string `toml:"port"`
+	Database      string `toml:"database"`
+	Authenticated bool   `toml:"authenticated"`
+	Username      string `toml:"username"`
+	Password      string `toml:"password"`
+}
+
+type prometheusConfig struct {
+	Authenticated bool   `toml:"authenticated"`
+	Username      string `toml:"username"`
+	Password      string `toml:"password"`
 }
 
 type promSdConf struct {

@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.17"
+const Version = "0.18"
 const userAgent = "gostats/" + Version
 
 const (
@@ -25,9 +25,9 @@ const defaultAuthType = authtypeSession
 
 // Config file plugin names
 const (
-	DISCARD_PLUGIN_NAME = "discard_plugin"
-	INFLUX_PLUGIN_NAME  = "influxdb_plugin"
-	PROM_PLUGIN_NAME    = "prometheus_plugin"
+	DISCARD_PLUGIN_NAME = "discard"
+	INFLUX_PLUGIN_NAME  = "influxdb"
+	PROM_PLUGIN_NAME    = "prometheus"
 )
 
 // parsed/populated stat structures
@@ -101,7 +101,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was moving prometheus port in v0.09
-	case "0.17", "0.16", "0.15", "0.14", "0.13", "0.12", "0.11", "0.10", "0.09":
+	case "0.18":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
@@ -134,24 +134,25 @@ func main() {
 	sg := parseStatConfig(conf)
 	// log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
 
+	// ugly, but we have to do this here since it's global, not a per-cluster
 	if conf.Global.Processor == PROM_PLUGIN_NAME && conf.PromSD.Enabled {
 		startPromSdListener(conf)
 	}
 
 	// start collecting from each defined and enabled cluster
 	var wg sync.WaitGroup
-	for _, cl := range conf.Clusters {
+	for i, cl := range conf.Clusters {
 		if cl.Disabled {
 			log.Infof("skipping disabled cluster %q", cl.Hostname)
 			continue
 		}
 		wg.Add(1)
-		go func(cl clusterConf) {
+		go func(ci int, cl clusterConf) {
 			log.Infof("spawning collection loop for cluster %s", cl.Hostname)
 			defer wg.Done()
-			statsloop(cl, conf.Global, sg)
+			statsloop(&conf, ci, sg)
 			log.Infof("collection loop for cluster %s ended", cl.Hostname)
-		}(cl)
+		}(i, cl)
 	}
 	wg.Wait()
 	log.Notice("All collectors complete - exiting")
@@ -235,11 +236,13 @@ type statTimeSet struct {
 	stats    []string
 }
 
-func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
+func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	var err error
 	var ss DBWriter
 
 	// Connect to the cluster
+	cluster := config.Clusters[ci]
+	gc := config.Global
 	authtype := cluster.AuthType
 	if authtype == "" {
 		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
@@ -297,7 +300,7 @@ func statsloop(cluster clusterConf, gc globalConfig, sg map[string]statGroup) {
 		log.Error(err)
 		return
 	}
-	err = ss.Init(c.ClusterName, cluster, gc.ProcessorArgs, sd)
+	err = ss.Init(c.ClusterName, config, ci, sd)
 	if err != nil {
 		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
 		return
