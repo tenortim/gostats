@@ -1,4 +1,11 @@
 [global]
+# Config file version
+# mandatory field
+# This field ties the config file syntax/format back to the collector version.
+# This allows the collector to flag breaking changes where the config file needs to be updated.
+# string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
+version = "v0.17"
+
 # Pluggable back end support
 # Default configuration uses InfluxDB (v1)
 stats_processor = "influxdb_plugin"

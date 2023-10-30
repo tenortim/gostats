@@ -25,6 +25,7 @@ type tomlConfig struct {
 }
 
 type globalConfig struct {
+	Version          string   `toml:"version"`
 	Processor        string   `toml:"stats_processor"`
 	ProcessorArgs    []string `toml:"stats_processor_args"`
 	ActiveStatGroups []string `toml:"active_stat_groups"`

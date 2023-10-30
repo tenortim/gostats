@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.16"
+const Version = "0.17"
 const userAgent = "gostats/" + Version
 
 const (
@@ -91,6 +91,22 @@ func setupLogging() {
 	logging.SetBackend(backendLeveled)
 }
 
+// validateConfigVersion checks the version of the config file to ensure that it is
+// compatible with this version of the collector
+// If not, it is a fatal error
+func validateConfigVersion(confVersion string) {
+	if confVersion == "" {
+		log.Fatalf("The collector requires a versioned config file (see the example config)")
+	}
+	v := strings.TrimLeft(confVersion, "vV")
+	switch v {
+	// last breaking change was moving prometheus port in v0.09
+	case "0.17", "0.16", "0.15", "0.14", "0.13", "0.12", "0.11", "0.10", "0.09":
+		return
+	}
+	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
+}
+
 func main() {
 	// parse command line
 	flag.Parse()
@@ -104,6 +120,8 @@ func main() {
 	// read in our config
 	conf := mustReadConfig()
 	log.Info("Successfully read config file")
+
+	validateConfigVersion(conf.Global.Version)
 
 	// Ensure the config contains at least one stat to poll
 	if len(conf.StatGroups) == 0 {
