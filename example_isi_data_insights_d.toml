@@ -21,7 +21,7 @@ stats_processor = "influxdb"
 # on the stat metadata update interval.
 # If there is concern over the load presented by collection, or a less frequent
 # collection interval is desired/required, this value can be increased.
-# The minimum permitted (and default) stat update interval is 5 seconds 
+# The minimum permitted (and default) stat update interval is 5 seconds
 min_update_interval_override = 5
 
 # Specifies the active list of stat groups to query, each stat group name
