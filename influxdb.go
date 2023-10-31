@@ -11,7 +11,7 @@ import (
 // InfluxDBSink defines the data to allow us talk to an InfluxDB database
 type InfluxDBSink struct {
 	cluster  string
-	c        client.Client
+	client   client.Client
 	bpConfig client.BatchPointsConfig
 	badStats mapset.Set[string]
 }
@@ -22,7 +22,6 @@ func GetInfluxDBWriter() DBWriter {
 }
 
 // Init initializes an InfluxDBSink so that points can be written
-// The array of argument strings comprises host, port, database
 func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
 	s.cluster = cluster
 	var username, password string
@@ -38,7 +37,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		username = ic.Username
 		password = ic.Password
 	}
-	c, err := client.NewHTTPClient(client.HTTPConfig{
+	client, err := client.NewHTTPClient(client.HTTPConfig{
 		Addr:     url,
 		Username: username,
 		Password: password,
@@ -46,7 +45,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 	if err != nil {
 		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
 	}
-	s.c = c
+	s.client = client
 	s.badStats = mapset.NewSet[string]()
 	return nil
 }
@@ -89,7 +88,7 @@ func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
 		}
 	}
 	// write the batch
-	err = s.c.Write(bp)
+	err = s.client.Write(bp)
 	if err != nil {
 		return fmt.Errorf("failed to write batch of points - %v", err.Error())
 	}

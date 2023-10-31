@@ -65,8 +65,8 @@ type clusterConf struct {
 	PrometheusPort *uint64 `toml:"prometheus_port"` // If using the Prometheus collector, define the listener port for the metrics handler
 }
 
-// The collector partitiones the stats to be collected into two tiers.
-// There are named groups and each group consists of a subset of stats.
+// The collector partitions the stats to be collected into two tiers.
+// At the top level, there are named groups and each group consists of a subset of stats.
 // This facilitates grouping related stats and enabling/disabling collection
 // by simply adding/removing the group name to the top-level set.
 type statGroupConf struct {
@@ -83,7 +83,6 @@ func mustReadConfig() tomlConfig {
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
-		// don't call log.Fatal so goimports doesn't get confused and try to add "log" to the imports
 		log.Critical(err)
 		os.Exit(1)
 	}

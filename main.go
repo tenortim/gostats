@@ -141,7 +141,7 @@ func main() {
 
 	// start collecting from each defined and enabled cluster
 	var wg sync.WaitGroup
-	for i, cl := range conf.Clusters {
+	for ci, cl := range conf.Clusters {
 		if cl.Disabled {
 			log.Infof("skipping disabled cluster %q", cl.Hostname)
 			continue
@@ -152,7 +152,7 @@ func main() {
 			defer wg.Done()
 			statsloop(&conf, ci, sg)
 			log.Infof("collection loop for cluster %s ended", cl.Hostname)
-		}(i, cl)
+		}(ci, cl)
 	}
 	wg.Wait()
 	log.Notice("All collectors complete - exiting")
@@ -238,29 +238,30 @@ type statTimeSet struct {
 
 func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	var err error
-	var ss DBWriter
+	var ss DBWriter // ss = stats sink
+
+	cc := config.Clusters[ci]
+	gc := config.Global
 
 	// Connect to the cluster
-	cluster := config.Clusters[ci]
-	gc := config.Global
-	authtype := cluster.AuthType
+	authtype := cc.AuthType
 	if authtype == "" {
-		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cluster.Hostname, authtypeSession)
+		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cc.Hostname, authtypeSession)
 		authtype = defaultAuthType
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
-		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cluster.Hostname, authtypeSession)
+		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cc.Hostname, authtypeSession)
 		authtype = defaultAuthType
 	}
 	c := &Cluster{
 		AuthInfo: AuthInfo{
-			Username: cluster.Username,
-			Password: cluster.Password,
+			Username: cc.Username,
+			Password: cc.Password,
 		},
 		AuthType:   authtype,
-		Hostname:   cluster.Hostname,
+		Hostname:   cc.Hostname,
 		Port:       8080,
-		VerifySSL:  cluster.SSLCheck,
+		VerifySSL:  cc.SSLCheck,
 		maxRetries: gc.MaxRetries,
 	}
 	if err = c.Connect(); err != nil {
