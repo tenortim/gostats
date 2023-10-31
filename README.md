@@ -30,10 +30,10 @@ The Grafana dashboards provided with the data insights project may be used witho
     isi auth roles modify StatsReader --add-priv=ISI_PRIV_STATISTICS --add-priv-ro=ISI_PRIV_LOGIN_PAPI --add-user=statsreader
     ```
 
-* To run the connector:
+* To run the connector in the background:
 
     ```sh
-    ./gostats
+    (nohup ./gostats &)
     ```
 
 * If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanze. This will spawn a Prometheus http metrics listener on the configured port.
