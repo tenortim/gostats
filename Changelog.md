@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.18 - Mon Oct 30 14:30:11 2023 -0700
+
+> [!IMPORTANT]
+> The config rewrite is a breaking change which will require
+> a manual update of the configuration file post-upgrade.
+
+### Major changes
+
+- Major config rewrite
+  - This config change means older config files must be updated to be compatible
+  - Renamed back end names (removed "_plugin")
+  - Removed hacky "processor_args" inherited from the Python collector
+  - Added config stanzas for InfluxDB and Prometheus
+
+## v0.17 - Mon Oct 30 12:42:21 2023 -0700
+
+### Major changes
+
+- Added config version checking
+  - Upcoming changes will break the config file format.
+  - Added a version check to avoid unexplained breakage.
+
 ## v0.16 - Sat Oct 28 15:42:34 2023 -0700
 
 ### Security
