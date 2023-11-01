@@ -4,11 +4,19 @@ import (
 	"strconv"
 )
 
-// types for the decoded fields and tags
+// stats returned from OneFS can be "multi-valued" i.e.,
+// a single stat can return values for min, max and avg of
+// several measures such as op rate or latency
+
+// ptFields maps the fields for a given instance of a metric to their values
 type ptFields map[string]any
+
+// ptTags maps the tags for a given instance of a metric to their values
 type ptTags map[string]string
 
-// helper function
+// ptTagmapCopy makes a copy of the given tag map
+// in the case where a metric yields an array of points, each point
+// needs its own distinct set of tags
 func ptTagmapCopy(tags ptTags) ptTags {
 	copy := ptTags{}
 	for k, v := range tags {
@@ -23,8 +31,9 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 	var baseTags ptTags
 	clusterStatTags := ptTags{"cluster": cluster}
 	nodeStatTags := ptTags{"cluster": cluster}
-	var fa []ptFields
-	var ta []ptTags
+	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
+	var mta []ptTags   // metric tag array i.e., array of tag name to tag value mappings for each unique tag set for this metric
+
 	// Handle cluster vs node stats
 	if stat.Devid == 0 {
 		baseTags = clusterStatTags
@@ -37,14 +46,17 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 	case float64:
 		fields := make(ptFields)
 		fields["value"] = val
-		fa = append(fa, fields)
-		ta = append(ta, baseTags)
+		mfa = append(mfa, fields)
+		mta = append(mta, baseTags)
 	case string:
+		// This should not happen, and if it does, we won't have a usable value to push to the database
+		log.Warningf("stat %s only has single (unusable) string value", stat.Key)
 		fields := make(ptFields)
 		fields["value"] = val
-		fa = append(fa, fields)
-		ta = append(ta, baseTags)
+		mfa = append(mfa, fields)
+		mta = append(mta, baseTags)
 	case []any:
+		// handle stats that return an array of "values" with distinct tag sets e.g., protostats
 		for _, vl := range val {
 			fields := make(ptFields)
 			tags := ptTagmapCopy(baseTags)
@@ -71,8 +83,8 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 			if isInvalidStat(&fields) {
 				log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
 			} else {
-				fa = append(fa, fields)
-				ta = append(ta, tags)
+				mfa = append(mfa, fields)
+				mta = append(mta, tags)
 			}
 		}
 	case map[string]any:
@@ -96,8 +108,8 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 		if isInvalidStat(&fields) {
 			log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
 		} else {
-			fa = append(fa, fields)
-			ta = append(ta, tags)
+			mfa = append(mfa, fields)
+			mta = append(mta, tags)
 		}
 	case nil:
 		// It seems that the stats API can return nil values where
@@ -109,7 +121,7 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 		log.Errorf("Unable to decode stat %+v", stat)
 		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
 	}
-	return fa, ta, nil
+	return mfa, mta, nil
 }
 
 // isInvalidStat checks the supplied fields and returns a boolean which, if true, specifies that

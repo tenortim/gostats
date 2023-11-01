@@ -113,13 +113,13 @@ func (c *Cluster) initialize() error {
 	return nil
 }
 
-// Return cluster name
+// String returns the string representation of Cluster as the cluster name
 func (c *Cluster) String() string {
 	return c.ClusterName
 }
 
-// Authenticate to the cluster using the session API endpoint
-// store the cookies
+// Authenticate authentices to the cluster using the session API endpoint
+// and saves the cookies needed to authenticate subsequent requests
 func (c *Cluster) Authenticate() error {
 	var err error
 	var resp *http.Response
