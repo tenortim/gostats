@@ -83,6 +83,7 @@ const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 func (c *Cluster) initialize() error {
 	// already initialized?
 	if c.client != nil {
+		log.Warningf("initialize called for cluster %s when it was already initialized, skipping", c.Hostname)
 		return nil
 	}
 	if c.Username == "" {
@@ -110,6 +111,11 @@ func (c *Cluster) initialize() error {
 	}
 	c.baseURL = "https://" + c.Hostname + ":" + strconv.Itoa(c.Port)
 	return nil
+}
+
+// Return cluster name
+func (c *Cluster) String() string {
+	return c.ClusterName
 }
 
 // Authenticate to the cluster using the session API endpoint
@@ -254,7 +260,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	la := 0
 	// Need special case for short last get
 	ls := len(stats)
-	log.Infof("fetching %d stats from cluster %s", ls, c.ClusterName)
+	log.Infof("fetching %d stats from cluster %s", ls, c)
 	// max minus (initial string + slop)
 	maxlen := MaxAPIPathLen - (len(basePath) + 100)
 	buffer.WriteString(basePath)
@@ -267,22 +273,22 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 				continue
 			}
 		}
-		log.Debugf("cluster %s fetching %s", c.ClusterName, buffer.String())
+		log.Debugf("cluster %s fetching %s", c, buffer.String())
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
-			log.Errorf("cluster %s failed to get stats: %v\n", c.ClusterName, err)
+			log.Errorf("cluster %s failed to get stats: %v\n", c, err)
 			// TODO investigate handling partial errors rather than totally failing?
 			return nil, err
 		}
 		// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 		// when using session cookies)
-		log.Debugf("cluster %s got response %s", c.ClusterName, resp)
+		log.Debugf("cluster %s got response %s", c, resp)
 		r, err := parseStatResult(resp)
 		if err != nil {
-			log.Errorf("cluster %s unable to parse response %q - error %s\n", c.ClusterName, resp, err)
+			log.Errorf("cluster %s unable to parse response %q - error %s\n", c, resp, err)
 			return nil, err
 		}
-		log.Debugf("cluster %s parsed stats results = %v", c.ClusterName, r)
+		log.Debugf("cluster %s parsed stats results = %v", c, r)
 		results = append(results, r...)
 		buffer.Reset()
 	}
@@ -313,14 +319,14 @@ func (c *Cluster) fetchStatDetails(sg map[string]statGroup) map[string]statDetai
 			path := statInfoPath + stat
 			resp, err := c.restGet(path)
 			if err != nil {
-				log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c.ClusterName, stat, err)
+				log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c, stat, err)
 				statInfo[stat] = badStat
 				continue
 			}
 			// parse stat info
 			detail, err := parseStatInfo(resp)
 			if err != nil {
-				log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c.ClusterName, stat, err)
+				log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c, stat, err)
 				statInfo[stat] = badStat
 				continue
 			}
@@ -414,7 +420,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var resp *http.Response
 
 	if c.AuthType == authtypeSession && time.Now().After(c.reauthTime) {
-		log.Infof("re-authenticating to cluster %v based on timer", c.ClusterName)
+		log.Infof("re-authenticating to cluster %s based on timer", c)
 		if err = c.Authenticate(); err != nil {
 			return nil, err
 		}
@@ -437,13 +443,13 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
+			resp.Body.Close()
 			// check for need to re-authenticate (maybe we are talking to a different node)
 			if resp.StatusCode == http.StatusUnauthorized {
-				resp.Body.Close()
 				if c.AuthType == authtypeBasic {
-					return nil, fmt.Errorf("basic authentication for cluster %v failed - check username and password", c.ClusterName)
+					return nil, fmt.Errorf("basic authentication for cluster %s failed - check username and password", c)
 				}
-				log.Noticef("Authentication to cluster %v failed, attempting to re-authenticate", c.ClusterName)
+				log.Noticef("Session-based authentication to cluster %s failed, attempting to re-authenticate", c)
 				if err = c.Authenticate(); err != nil {
 					return nil, err
 				}
@@ -454,8 +460,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 				continue
 				// TODO handle repeated auth failures to avoid panic
 			}
-			resp.Body.Close()
-			return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
+			return nil, fmt.Errorf("Cluster %s returned unexpected HTTP response: %v", c, resp.Status)
 		}
 		// assert err != nil
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
@@ -474,7 +479,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Cluster %v returned unexpected HTTP response: %v", c.ClusterName, resp.Status)
+		return nil, fmt.Errorf("Cluster %s returned unexpected HTTP response: %v", c, resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	return body, err
