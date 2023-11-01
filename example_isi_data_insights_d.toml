@@ -60,6 +60,8 @@ authenticated = false
 authenticated = false
 # username = "promuser"
 # password = "prompass"
+# tls_cert = "/path/to/certificate"
+# tls_key = "/path/to/key"
 
 # discard back end currently has no configurable options and hence no config stanza
 

@@ -189,23 +189,25 @@ func (p *PrometheusClient) Connect() error {
 }
 
 // Init initializes an PrometheusSink so that points can be written
-// The array of argument strings comprises host, port, database
 func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd map[string]statDetail) error {
 	s.cluster = clusterName
-	pc := config.Prometheus
+	promconf := config.Prometheus
 	port := config.Clusters[ci].PrometheusPort
 	if port == nil {
 		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", clusterName)
 	}
-	s.client.ListenPort = *port
+	pc := s.client
+	pc.ListenPort = *port
 
-	if pc.Authenticated {
-		s.client.BasicUsername = pc.Username
-		s.client.BasicPassword = pc.Password
+	if promconf.Authenticated {
+		pc.BasicUsername = promconf.Username
+		pc.BasicPassword = promconf.Password
 	}
+	pc.TLSCert = config.Prometheus.TLSCert
+	pc.TLSKey = config.Prometheus.TLSKey
 
 	registry := prometheus.NewRegistry()
-	s.client.registry = registry
+	pc.registry = registry
 	registry.Register(s)
 
 	s.fam = make(map[string]*MetricFamily)
@@ -219,7 +221,7 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	s.metricMap = metricMap
 
 	// Set up http server here
-	err := s.client.Connect()
+	err := pc.Connect()
 
 	return err
 }
