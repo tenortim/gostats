@@ -160,10 +160,24 @@ func startPromSdListener(conf tomlConfig) error {
 	return nil
 }
 
+// homepage provides a landing page pointing to the metrics handler
+func homepage(w http.ResponseWriter, r *http.Request) {
+	description := `<html>
+<body>
+<h1>Dell PowerScale OpenMetrics Exporter</h1>
+<p>Performance metrics for this cluster may be found at <a href="/metrics">/metrics</a></p>
+</body>
+</html>`
+
+	fmt.Fprintf(w, "%s", description)
+}
+
+// Connect() sets up the HTTP server and handlers for Prometheus
 func (p *PrometheusClient) Connect() error {
 	addr := fmt.Sprintf(":%d", p.ListenPort)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", homepage)
 	mux.Handle("/metrics", p.auth(promhttp.HandlerFor(
 		p.registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError})))
 
@@ -213,7 +227,6 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	s.fam = make(map[string]*MetricFamily)
 
 	metricMap := make(map[string]*PrometheusStat)
-
 	for stat, detail := range sd {
 		promstat := PrometheusStat{detail: detail, description: detail.description}
 		metricMap[stat] = &promstat
@@ -281,9 +294,7 @@ func (s *PrometheusSink) Collect(ch chan<- prometheus.Metric) {
 				labels = append(labels, v)
 			}
 
-			var metric prometheus.Metric
-			var err error
-			metric, err = prometheus.NewConstMetric(desc, prometheus.GaugeValue, sample.Value, labels...)
+			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, sample.Value, labels...)
 			if err != nil {
 				log.Errorf("error creating prometheus metric, "+
 					"key: %s, labels: %v,\nerr: %s\n",

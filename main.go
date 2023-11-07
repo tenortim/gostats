@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.19"
+const Version = "0.20"
 const userAgent = "gostats/" + Version
 
 const (
@@ -101,7 +101,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was moving prometheus port in v0.18
-	case "0.19", "0.18":
+	case "0.20", "0.19", "0.18":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
