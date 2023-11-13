@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.21 - Mon Nov 13 11:47:43 2023 -0800
+
+> [!IMPORTANT]
+> Due to the logfile changes, this is a breaking change which will
+> require a manual update of the configuration file post-upgrade.
+
+### Major changes
+
+- Add secret support and log to stdout support
+  - Add secret support for sensitive information such as cluster passwords
+  - Add logfile configuration to the config file
+    - Logging to stdout is enabled via the log_to_stdout parameter
+    - Logging to file can be configured in the config file and overridden at the command line
+- Bump version, mark as breaking change
+
+## v0.20 - Tue Nov 7 14:33:17 2023 -0800
+
+### Changes
+
+- Add basic http landing page
+  - Add basic collector description and "/metrics" link.
+
+## v0.19 - Wed Nov 1 13:53:41 2023 -0700
+
+### Changes
+
+- Plumb in support for TLS-encrypted endpoints
+  - The code was already there but not plumbed in to the config file.
+- Improve run instructions
+
 ## v0.18 - Mon Oct 30 14:30:11 2023 -0700
 
 > [!IMPORTANT]
