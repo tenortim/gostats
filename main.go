@@ -138,7 +138,7 @@ func validateConfigVersion(confVersion string) {
 	}
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
-	// last breaking change was moving prometheus port in v0.21
+	// last breaking change was logging changes in v0.21
 	case "0.21":
 		return
 	}
