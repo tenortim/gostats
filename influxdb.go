@@ -25,6 +25,7 @@ func GetInfluxDBWriter() DBWriter {
 func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
 	s.cluster = cluster
 	var username, password string
+	var err error
 	ic := config.InfluxDB
 	url := "http://" + ic.Host + ":" + ic.Port
 
@@ -36,6 +37,10 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 	if ic.Authenticated {
 		username = ic.Username
 		password = ic.Password
+	}
+	password, err = secretFromEnv(password)
+	if err != nil {
+		return fmt.Errorf("unable to retrieve InfluxDB password from environment: %v", err.Error())
 	}
 	client, err := client.NewHTTPClient(client.HTTPConfig{
 		Addr:     url,

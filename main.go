@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.20"
+const Version = "0.21"
 const userAgent = "gostats/" + Version
 
 const (
@@ -45,7 +45,9 @@ var log = logging.MustGetLogger("gostats")
 
 type loglevel logging.Level
 
-var logFileName = flag.String("logfile", "./gostats.log", "pathname of log file")
+const DEFAULTLOGFILE = "./gostats.log"
+
+var logFileName = flag.String("logfile", DEFAULTLOGFILE, "pathname of log file")
 var logLevel = loglevel(logging.NOTICE)
 var configFileName = flag.String("config-file", "idic.toml", "pathname of config file")
 
@@ -75,12 +77,17 @@ func init() {
 		"default log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG]")
 }
 
-func setupLogging() {
-	f, err := os.OpenFile(*logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "gostats: unable to open log file %s for output - %s", *logFileName, err)
-		os.Exit(2)
-	}
+func isFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func backendFromFile(f *os.File) logging.Backend {
 	backend := logging.NewLogBackend(f, "", 0)
 	var format = logging.MustStringFormatter(
 		`%{time:2006-01-02T15:04:05Z07:00} %{shortfile} %{level} %{message}`,
@@ -88,7 +95,38 @@ func setupLogging() {
 	backendFormatter := logging.NewBackendFormatter(backend, format)
 	backendLeveled := logging.AddModuleLevel(backendFormatter)
 	backendLeveled.SetLevel(logging.Level(logLevel), "")
-	logging.SetBackend(backendLeveled)
+	return backendLeveled
+}
+
+func setupLogging(gc globalConfig) {
+	// Up to two backends (one file, one stdout)
+	backends := make([]logging.Backend, 0, 2)
+	// default is to not log to file
+	logfile := ""
+	// is it set in the config file
+	if gc.LogFile != nil {
+		logfile = *gc.LogFile
+	}
+	// Finally, if it was set on the command line, override the setting
+	if isFlagPassed("logfile") {
+		logfile = *logFileName
+	}
+	if logfile != "" {
+		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "gostats: unable to open log file %s for output - %s", *logFileName, err)
+			os.Exit(2)
+		}
+		backends = append(backends, backendFromFile(f))
+	}
+	if gc.LogToStdout {
+		backends = append(backends, backendFromFile(os.Stdout))
+	}
+	if len(backends) == 0 {
+		fmt.Fprintf(os.Stderr, "gostats: no logging defined, unable to continue\nPlease configure logging in the config file and/or via the command line\n")
+		os.Exit(3)
+	}
+	logging.SetBackend(backends...)
 }
 
 // validateConfigVersion checks the version of the config file to ensure that it is
@@ -100,26 +138,25 @@ func validateConfigVersion(confVersion string) {
 	}
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
-	// last breaking change was moving prometheus port in v0.18
-	case "0.20", "0.19", "0.18":
+	// last breaking change was moving prometheus port in v0.21
+	case "0.21":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
 }
 
 func main() {
+	// read in our config
+	conf := mustReadConfig()
+
 	// parse command line
 	flag.Parse()
 
 	// set up logging
-	setupLogging()
+	setupLogging(conf.Global)
 
 	// announce ourselves
 	log.Noticef("Starting gostats version %s", Version)
-
-	// read in our config
-	conf := mustReadConfig()
-	log.Info("Successfully read config file")
 
 	validateConfigVersion(conf.Global.Version)
 
@@ -238,6 +275,7 @@ type statTimeSet struct {
 
 func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	var err error
+	var password string
 	var ss DBWriter // ss = stats sink
 
 	cc := config.Clusters[ci]
@@ -253,10 +291,19 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cc.Hostname, authtypeSession)
 		authtype = defaultAuthType
 	}
+	if cc.Username == "" || cc.Password == "" {
+		log.Errorf("Username and password for cluster %s must no be null", cc.Hostname)
+		return
+	}
+	password, err = secretFromEnv(cc.Password)
+	if err != nil {
+		log.Errorf("Unable to retrieve password from environment for cluster %s: %v", cc.Hostname, err.Error())
+		return
+	}
 	c := &Cluster{
 		AuthInfo: AuthInfo{
 			Username: cc.Username,
-			Password: cc.Password,
+			Password: password,
 		},
 		AuthType:   authtype,
 		Hostname:   cc.Hostname,

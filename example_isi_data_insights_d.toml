@@ -4,7 +4,10 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.20"
+version = "v0.21"
+
+logfile = "gostats.log"
+log_to_stdout = false
 
 # Pluggable back end support
 # Supported back ends are "influxdb", "prometheus" and "discard"
@@ -53,6 +56,8 @@ database = "isi_data_insights"
 authenticated = false
 # username = "influxuser"
 # password = "influxpass"
+# or e.g.
+# password = "$env:INFLUXPASS"
 
 # Prometheus configuration
 [prometheus]
@@ -93,6 +98,8 @@ sd_port = 9999
 hostname = "demo.cluster.com"
 username = "root"
 password = "a"
+# or e.g.
+# password = "$env:CLUSTER1PASS"
 verify-ssl = true
 
 ######################### End of cluster configuration ########################

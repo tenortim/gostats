@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -28,6 +29,8 @@ type tomlConfig struct {
 
 type globalConfig struct {
 	Version          string   `toml:"version"`
+	LogFile          *string  `toml:"logfile"`
+	LogToStdout      bool     `toml:"log_to_stdout"`
 	Processor        string   `toml:"stats_processor"`
 	MinUpdateInvtl   int      `toml:"min_update_interval_override"`
 	MaxRetries       int      `toml:"max_retries"`
@@ -85,7 +88,6 @@ func mustReadConfig() tomlConfig {
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
-		log.Critical(err)
 		os.Exit(1)
 	}
 	// If retries is 0 or negative, make it effectively infinite
@@ -94,4 +96,18 @@ func mustReadConfig() tomlConfig {
 	}
 
 	return conf
+}
+
+const ENVPREFIX = "$env:"
+
+func secretFromEnv(s string) (string, error) {
+	if !strings.HasPrefix(s, ENVPREFIX) {
+		return s, nil
+	}
+	envvar := strings.TrimPrefix(s, ENVPREFIX)
+	secret := os.Getenv(envvar)
+	if secret == "" {
+		return "", fmt.Errorf("unable to find environment variable %s to interpolate", envvar)
+	}
+	return secret, nil
 }
