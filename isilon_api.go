@@ -33,17 +33,18 @@ type AuthInfo struct {
 // cluster via the OneFS API
 type Cluster struct {
 	AuthInfo
-	AuthType    string
-	Hostname    string
-	Port        int
-	VerifySSL   bool
-	OSVersion   string
-	ClusterName string
-	baseURL     string
-	client      *http.Client
-	csrfToken   string
-	reauthTime  time.Time
-	maxRetries  int
+	AuthType     string
+	Hostname     string
+	Port         int
+	VerifySSL    bool
+	OSVersion    string
+	ClusterName  string
+	baseURL      string
+	client       *http.Client
+	csrfToken    string
+	reauthTime   time.Time
+	maxRetries   int
+	PreserveCase bool
 }
 
 // StatResult contains the information returned for a single stat key
@@ -227,7 +228,11 @@ func (c *Cluster) GetClusterConfig() error {
 	release := r["version"]
 	rel := release.(string)
 	c.OSVersion = rel
-	c.ClusterName = strings.ToLower(m["name"].(string))
+	if c.PreserveCase {
+		c.ClusterName = m["name"].(string)
+	} else {
+		c.ClusterName = strings.ToLower(m["name"].(string))
+	}
 	return nil
 }
 
