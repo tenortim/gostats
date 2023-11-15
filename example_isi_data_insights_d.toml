@@ -14,6 +14,15 @@ log_to_stdout = false
 # Default configuration uses InfluxDB (v1)
 stats_processor = "influxdb"
 
+# Maximum number of retries in case of errors during write to stat_processor
+# Default is 8 retries. Uncomment the following line to retry forever
+# stats_processor_max_retries = 0
+
+# The stats_processor_retry_interval parameter provides the ability to override the
+# minimum interval that the daemon will retry in case writing to the stats_processor fails.
+# Default is 5 second. Uncomment the following line to start with a 1 second interval.
+# stats_processor_retry_interval = 1
+
 # Maximum number of retries for http requests (both data and auth)
 # Default is 8 retries. Uncomment the following line to retry forever
 # max_retries = 0
@@ -26,6 +35,9 @@ stats_processor = "influxdb"
 # collection interval is desired/required, this value can be increased.
 # The minimum permitted (and default) stat update interval is 5 seconds
 min_update_interval_override = 5
+
+# preserve case of cluster names to lowercase, defaults to false.
+# preserve_case = true
 
 # Specifies the active list of stat groups to query, each stat group name
 # specified here should have a corresponding section in the config file.
@@ -93,6 +105,7 @@ sd_port = 9999
 # authtype = "basic-auth"
 # disabled = false
 # prometheus_port = 9090
+# preserve_case = true
 #	...
 [[cluster]]
 hostname = "demo.cluster.com"

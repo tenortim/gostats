@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.21"
+const Version = "0.22"
 const userAgent = "gostats/" + Version
 
 const (
@@ -281,6 +281,14 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	cc := config.Clusters[ci]
 	gc := config.Global
 
+	var normalize bool
+
+	if cc.PreserveCase == nil { // check for cluster overwrite setting of PreserveCase, default and to global setting
+		normalize = gc.PreserveCase
+	} else {
+		normalize = *cc.PreserveCase
+	}
+
 	// Connect to the cluster
 	authtype := cc.AuthType
 	if authtype == "" {
@@ -305,11 +313,12 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			Username: cc.Username,
 			Password: password,
 		},
-		AuthType:   authtype,
-		Hostname:   cc.Hostname,
-		Port:       8080,
-		VerifySSL:  cc.SSLCheck,
-		maxRetries: gc.MaxRetries,
+		AuthType:     authtype,
+		Hostname:     cc.Hostname,
+		Port:         8080,
+		VerifySSL:    cc.SSLCheck,
+		maxRetries:   gc.MaxRetries,
+		PreserveCase: normalize,
 	}
 	if err = c.Connect(); err != nil {
 		log.Errorf("Connection to cluster %s failed: %v", c.Hostname, err)
@@ -389,10 +398,21 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		heap.Push(&pq, nextItem)
 
 		log.Debugf("Cluster %s start writing stats to back end", c.ClusterName)
-		err = ss.WriteStats(sr)
+		// write stats, now with retries
+		retryTime = time.Second * time.Duration(gc.ProcessorRetryIntvl)
+		for i := 1; i <= gc.ProcessorMaxRetries; i++ {
+			err = ss.WriteStats(sr)
+			if err == nil {
+				break
+			}
+			log.Errorf("%v - retry #%d in %v", err, i, retryTime)
+			time.Sleep(retryTime)
+			if retryTime < maxRetryTime {
+				retryTime *= 2
+			}
+		}
 		if err != nil {
-			// TODO maybe implement backoff/error-handling here?
-			log.Errorf("Failed to write stats to database: %s", err)
+			log.Errorf("ProcessorMaxRetries exceeded, failed to write stats to database: %s", err)
 			return
 		}
 	}
