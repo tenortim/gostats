@@ -4,13 +4,13 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.22"
+version = "v0.23"
 
 logfile = "gostats.log"
 log_to_stdout = false
 
 # Pluggable back end support
-# Supported back ends are "influxdb", "prometheus" and "discard"
+# Supported back ends are "influxdb", "influxdbv2", "prometheus" and "discard"
 # Default configuration uses InfluxDB (v1)
 stats_processor = "influxdb"
 
@@ -70,6 +70,16 @@ authenticated = false
 # password = "influxpass"
 # or e.g.
 # password = "$env:INFLUXPASS"
+
+# Influxdbv2 configuration
+[influxdbv2]
+host = "localhost"
+port = "8086"
+org = "my-org"
+bucket = "isi_data_insights"
+access_token = "<access_token>"
+# or e.g.
+# access_token = "$env:INFLUX_TOKEN"
 
 # Prometheus configuration
 [prometheus]

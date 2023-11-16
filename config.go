@@ -26,6 +26,7 @@ const defaultPreserveCase = false
 type tomlConfig struct {
 	Global     globalConfig
 	InfluxDB   influxDBConfig   `toml:"influxdb"`
+	InfluxDBv2 influxDBv2Config `toml:"influxdbv2"`
 	Prometheus prometheusConfig `toml:"prometheus"`
 	PromSD     promSdConf       `toml:"prom_http_sd"`
 	Clusters   []clusterConf    `toml:"cluster"`
@@ -52,6 +53,14 @@ type influxDBConfig struct {
 	Authenticated bool   `toml:"authenticated"`
 	Username      string `toml:"username"`
 	Password      string `toml:"password"`
+}
+
+type influxDBv2Config struct {
+	Host   string `toml:"host"`
+	Port   string `toml:"port"`
+	Org    string `toml:"org"`
+	Bucket string `toml:"bucket"`
+	Token  string `toml:"access_token"`
 }
 
 type prometheusConfig struct {
@@ -100,7 +109,7 @@ func mustReadConfig() tomlConfig {
 
 	_, err := toml.DecodeFile(*configFileName, &conf)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: unable to read config file %s, exiting\n", os.Args[0], *configFileName)
+		fmt.Fprintf(os.Stderr, "%s: failed to read config file %s\nRrror %v\nExiting\n", os.Args[0], *configFileName, err.Error())
 		os.Exit(1)
 	}
 	// If retries is 0 or negative, make it effectively infinite
