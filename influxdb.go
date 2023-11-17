@@ -5,7 +5,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/influxdata/influxdb/client/v2"
+	client "github.com/influxdata/influxdb1-client/v2"
 )
 
 // InfluxDBSink defines the data to allow us talk to an InfluxDB database
