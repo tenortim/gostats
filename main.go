@@ -147,11 +147,11 @@ func validateConfigVersion(confVersion string) {
 }
 
 func main() {
-	// read in our config
-	conf := mustReadConfig()
-
 	// parse command line
 	flag.Parse()
+
+	// read in our config
+	conf := mustReadConfig()
 
 	// set up logging
 	setupLogging(conf.Global)
