@@ -438,7 +438,7 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 		for _, stat := range sg[group].stats {
 			sd := sd[stat]
 			if !sd.valid {
-				log.Warningf("skipping invalid stat: '%v'", stat)
+				log.Warningf("cluster %s: skipping invalid stat: '%v'", c.ClusterName, stat)
 				continue
 			}
 			sui := sd.updateIntvl
