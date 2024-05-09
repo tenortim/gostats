@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -71,6 +72,16 @@ type MetricFamily struct {
 	Desc string
 }
 
+// HTML content for the homepage
+const homepageContent = `
+<html>
+<body>
+<h1>Dell PowerScale OpenMetrics Exporter</h1>
+<p>Performance metrics for this cluster may be found at <a href="/metrics">/metrics</a></p>
+</body>
+</html>
+`
+
 // GetPrometheusWriter returns an Prometheus DBWriter
 func GetPrometheusWriter() DBWriter {
 	return &PrometheusSink{}
@@ -112,35 +123,37 @@ type httpSdConf struct {
 	ListenPorts []uint64
 }
 
+type Target struct {
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
+}
+
 func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var listenAddrs string
 	w.Header().Set("Content-Type", "application/json")
-	sdstr1 := `[
-	{
-		"targets": [`
+	target := Target{
+		Targets: make([]string, len(h.ListenPorts)),
+		Labels: map[string]string{
+			"__meta_prometheus_job": "isilon_stats",
+		},
+	}
 	for i, port := range h.ListenPorts {
-		if i != 0 {
-			listenAddrs += ", "
-		}
-		listenAddrs += fmt.Sprintf("\"%s:%d\"", h.ListenIP, port)
+		target.Targets[i] = fmt.Sprintf("%s:%d", h.ListenIP, port)
 	}
-	sdstr2 := `],
-		"labels": {
-			"__meta_prometheus_job": "isilon_stats"
-		}
+
+	jsonBytes, err := json.Marshal([]Target{target})
+	if err != nil {
+		log.Error("Error encording JSON response")
+		http.Error(w, "Error encoding JSON response", http.StatusInternalServerError)
 	}
-]`
-	w.Write([]byte(sdstr1 + listenAddrs + sdstr2))
+
+	w.Write(jsonBytes)
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
-func startPromSdListener(conf tomlConfig) error {
-	var listenAddr string
-	var err error
-	listenAddr = conf.PromSD.ListenAddr
+func startPromSdListener(conf tomlConfig) (err error) {
+	listenAddr := conf.PromSD.ListenAddr
 	if listenAddr == "" {
-		listenAddr, err = findExternalAddr()
-		if err != nil {
+		if listenAddr, err = findExternalAddr(); err != nil {
 			return err
 		}
 	}
@@ -162,14 +175,7 @@ func startPromSdListener(conf tomlConfig) error {
 
 // homepage provides a landing page pointing to the metrics handler
 func homepage(w http.ResponseWriter, r *http.Request) {
-	description := `<html>
-<body>
-<h1>Dell PowerScale OpenMetrics Exporter</h1>
-<p>Performance metrics for this cluster may be found at <a href="/metrics">/metrics</a></p>
-</body>
-</html>`
-
-	fmt.Fprintf(w, "%s", description)
+	fmt.Fprintf(w, "%s", homepageContent)
 }
 
 // Connect() sets up the HTTP server and handlers for Prometheus
@@ -396,14 +402,13 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 			sampleID := CreateSampleID(ta[i])
 			labels := make(prometheus.Labels)
 			labels["cluster"] = s.cluster
+			labels["instance"] = s.cluster
 			if stat.Devid != 0 {
 				labels["node"] = strconv.Itoa(stat.Devid)
 			}
 			// is this a multi-valued stat e.g., proto stats detail?
-			multiValued := false
-			if len(fields) > 1 {
-				multiValued = true
-			}
+			multiValued := len(fields) > 1
+
 			basename := promStatBasename(stat.Key)
 			for k, v := range fields {
 				var name string
