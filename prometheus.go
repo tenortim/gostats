@@ -371,11 +371,6 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 		for i, fields := range point.fields {
 			sampleID := CreateSampleID(point.tags[i])
 			labels := make(prometheus.Labels)
-			// XXX This should already be being handled by the setting of labels from tags loop below
-			// labels["cluster"] = s.cluster
-			// if stat.Devid != 0 {
-			// 	labels["node"] = strconv.Itoa(stat.Devid)
-			// }
 			// is this a multi-valued stat e.g., proto stats detail?
 			multiValued := false
 			if len(fields) > 1 {

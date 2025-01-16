@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.23"
+const Version = "0.25"
 const userAgent = "gostats/" + Version
 
 const (
@@ -139,8 +139,8 @@ func validateConfigVersion(confVersion string) {
 	}
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
-	// last breaking change was logging changes in v0.21
-	case "0.24", "0.23", "0.22", "0.21":
+	// last breaking change was addition of summary stats in v0.25
+	case "0.25":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
@@ -338,17 +338,27 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		return
 	}
 
-	// initial priority PriorityQueue
+	// initialize minHeap/pq with our time-based buckets
 	startTime := time.Now()
 	pq := make(PriorityQueue, len(statBuckets))
 	i := 0
 	for _, v := range statBuckets {
+		value := PqValue{StatTypeRegularStat, &v}
 		pq[i] = &Item{
-			value:    v, // statTimeSet
+			value:    value, // statTimeSet
 			priority: startTime,
 			index:    i,
 		}
 		i++
+	}
+	// add entries for summary stats
+	if config.SummaryStats.Protocol {
+		item := Item{
+			value:    PqValue{StatTypeSummaryStatProtocol, nil},
+			priority: startTime,
+			index:    i,
+		}
+		pq = append(pq, &item)
 	}
 	heap.Init(&pq)
 
@@ -375,46 +385,61 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		}
 		// Collect one set of stats
 		log.Debugf("Cluster %s start collecting stats", c.ClusterName)
-		var sr []StatResult
-		stats := nextItem.value.stats
-		readFailCount := 0
-		const maxRetryTime = time.Second * 1280
-		retryTime := time.Second * 10
-		for {
-			sr, err = c.GetStats(stats)
-			if err == nil {
-				break
+		if nextItem.value.stattype == StatTypeRegularStat {
+			var sr []StatResult
+			stats := nextItem.value.sts.stats
+			readFailCount := 0
+			const maxRetryTime = time.Second * 1280
+			retryTime := time.Second * 10
+			for {
+				sr, err = c.GetStats(stats)
+				if err == nil {
+					break
+				}
+				readFailCount++
+				log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in %v", c.ClusterName, err, readFailCount, retryTime)
+				time.Sleep(retryTime)
+				if retryTime < maxRetryTime {
+					retryTime *= 2
+				}
 			}
-			readFailCount++
-			log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in %v", c.ClusterName, err, readFailCount, retryTime)
-			time.Sleep(retryTime)
-			if retryTime < maxRetryTime {
-				retryTime *= 2
+			if *checkStatReturn {
+				verifyStatReturn(c.ClusterName, stats, sr)
 			}
-		}
-		if *checkStatReturn {
-			verifyStatReturn(c.ClusterName, stats, sr)
-		}
-		nextItem.priority = nextItem.priority.Add(nextItem.value.interval)
-		heap.Push(&pq, nextItem)
-
-		log.Debugf("Cluster %s start writing stats to back end", c.ClusterName)
-		// write stats, now with retries
-		retryTime = time.Second * time.Duration(gc.ProcessorRetryIntvl)
-		for i := 1; i <= gc.ProcessorMaxRetries; i++ {
-			err = c.WriteStats(ss, sr)
-			if err == nil {
-				break
+			nextItem.priority = nextItem.priority.Add(nextItem.value.sts.interval)
+			heap.Push(&pq, nextItem)
+			log.Debugf("Cluster %s start writing stats to back end", c.ClusterName)
+			// write stats, now with retries
+			err = c.WriteStats(gc, ss, sr)
+			if err != nil {
+				log.Errorf("unable to write stats to database, stopping collection for cluster %s", c.ClusterName)
+				return
 			}
-			log.Errorf("%v - retry #%d in %v", err, i, retryTime)
-			time.Sleep(retryTime)
-			if retryTime < maxRetryTime {
-				retryTime *= 2
+		} else if nextItem.value.stattype == StatTypeSummaryStatProtocol {
+			log.Debugf("collecting protocol summary stats for cluster %c here", c.ClusterName)
+			ssp, err := c.GetSummaryProtocolStats()
+			if err != nil {
+				log.Errorf("failed to collect summary protocol stats: %v", err)
+			} else {
+				name := summaryStatsBasename + "protocol"
+				points := make([]Point, len(ssp))
+				for i, ss := range ssp {
+					var fa []ptFields
+					var ta []ptTags
+					fields, tags := DecodeProtocolSummaryStat(c.ClusterName, ss)
+					fa = append(fa, fields)
+					ta = append(ta, tags)
+					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
+				}
+				log.Debugf("Cluster %s start writing protocol summary stats to back end", c.ClusterName)
+				err = ss.WritePoints(points)
+				if err != nil {
+					log.Errorf("unable to write protocol summary stats to database, stopping collection for cluster %s", c.ClusterName)
+					return
+				}
 			}
-		}
-		if err != nil {
-			log.Errorf("ProcessorMaxRetries exceeded, failed to write stats to database: %s", err)
-			return
+			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
+			heap.Push(&pq, nextItem)
 		}
 	}
 }

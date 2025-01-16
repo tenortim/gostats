@@ -1,4 +1,5 @@
 gostats
 gostats.exe
 gostats.log
+.vscode
 *.code-workspace

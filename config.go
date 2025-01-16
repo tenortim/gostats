@@ -24,13 +24,14 @@ const defaultPreserveCase = false
 
 // config file structures
 type tomlConfig struct {
-	Global     globalConfig
-	InfluxDB   influxDBConfig   `toml:"influxdb"`
-	InfluxDBv2 influxDBv2Config `toml:"influxdbv2"`
-	Prometheus prometheusConfig `toml:"prometheus"`
-	PromSD     promSdConf       `toml:"prom_http_sd"`
-	Clusters   []clusterConf    `toml:"cluster"`
-	StatGroups []statGroupConf  `toml:"statgroup"`
+	Global       globalConfig
+	InfluxDB     influxDBConfig    `toml:"influxdb"`
+	InfluxDBv2   influxDBv2Config  `toml:"influxdbv2"`
+	Prometheus   prometheusConfig  `toml:"prometheus"`
+	PromSD       promSdConf        `toml:"prom_http_sd"`
+	Clusters     []clusterConf     `toml:"cluster"`
+	SummaryStats summaryStatConfig `toml:"summary_stats"`
+	StatGroups   []statGroupConf   `toml:"statgroup"`
 }
 
 type globalConfig struct {
@@ -86,6 +87,10 @@ type clusterConf struct {
 	Disabled       bool    // if set, disable collection for this cluster
 	PrometheusPort *uint64 `toml:"prometheus_port"` // If using the Prometheus collector, define the listener port for the metrics handler
 	PreserveCase   *bool   `toml:"preserve_case"`   // Overwrite normalization of Cluster Name
+}
+
+type summaryStatConfig struct {
+	Protocol bool // protocol summary stats enabled?
 }
 
 // The collector partitions the stats to be collected into two tiers.

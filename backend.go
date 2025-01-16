@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
+	"time"
 )
 
 // stats returned from OneFS can be "multi-valued" i.e.,
@@ -34,6 +34,35 @@ func ptTagmapCopy(tags ptTags) ptTags {
 		copy[k] = v
 	}
 	return copy
+}
+
+func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (ptFields, ptTags) {
+	tags := ptTags{"cluster": cluster}
+	fields := make(ptFields)
+	if pss.Node != nil {
+		tags["node"] = strconv.FormatInt(*pss.Node, 10)
+	}
+	tags["class"] = pss.Class
+	tags["operation"] = pss.Operation
+	tags["protocol"] = pss.Protocol
+	fields["in"] = pss.In
+	fields["in_avg"] = pss.InAvg
+	fields["in_max"] = pss.InMax
+	fields["in_min"] = pss.InMin
+	fields["in_standard_dev"] = pss.InStandardDev
+	fields["operation_count"] = pss.OperationCount
+	fields["operation_rate"] = pss.OperationRate
+	fields["out"] = pss.Out
+	fields["out_avg"] = pss.OutAvg
+	fields["out_max"] = pss.OutMax
+	fields["out_min"] = pss.OutMin
+	fields["out_standard_dev"] = pss.OutStandardDev
+	fields["time"] = pss.Time
+	fields["time_avg"] = pss.TimeAvg
+	fields["time_max"] = pss.TimeMax
+	fields["time_min"] = pss.TimeMin
+	fields["time_standard_dev"] = pss.TimeStandardDev
+	return fields, tags
 }
 
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
@@ -148,7 +177,7 @@ func isInvalidStat(fields *ptFields) bool {
 }
 
 // WriteStats takes an array of StatResults and writes them to the requested backend database
-func (c *Cluster) WriteStats(ss DBWriter, stats []StatResult) error {
+func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) error {
 	points := make([]Point, 0, len(stats)) // try to preallocate at least some space here
 	for _, stat := range stats {
 		if stat.ErrorCode != 0 {
@@ -167,10 +196,24 @@ func (c *Cluster) WriteStats(ss DBWriter, stats []StatResult) error {
 		point := Point{name: stat.Key, time: stat.UnixTime, fields: fa, tags: ta}
 		points = append(points, point)
 	}
-	// write the points to the database
-	err := ss.WritePoints(points)
+	// write the points to the database, retrying up to the limit
+	const maxRetryTime = time.Second * 1280
+	retryTime := time.Second * time.Duration(gc.ProcessorRetryIntvl)
+	var err error
+	for i := 1; i <= gc.ProcessorMaxRetries; i++ {
+		err = ss.WritePoints(points)
+		if err == nil {
+			break
+		}
+		log.Errorf("failed writing to back end database: %v - retry #%d in %v", err, i, retryTime)
+		time.Sleep(retryTime)
+		if retryTime < maxRetryTime {
+			retryTime *= 2
+		}
+	}
 	if err != nil {
-		return fmt.Errorf("failed to write batch of points - %v", err.Error())
+		log.Errorf("ProcessorMaxRetries exceeded, failed to write stats to database: %s", err)
+		return err
 	}
 	return nil
 }

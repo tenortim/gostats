@@ -8,10 +8,23 @@ import (
 // https://golang.org/pkg/container/heap/#example__priorityQueue
 // Just a few name changes
 
+type StatType int
+
+const (
+	StatTypeRegularStat StatType = iota
+	StatTypeSummaryStatProtocol
+)
+
+// value is must be able to hold either regular stat info or summary stat info
+type PqValue struct {
+	stattype StatType
+	sts      *statTimeSet
+}
+
 // An Item is something we manage in a priority queue.
 type Item struct {
-	value    statTimeSet // The value of the item; arbitrary.
-	priority time.Time   // The priority of the item in the queue.
+	value    PqValue   // The value of the item; arbitrary.
+	priority time.Time // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }

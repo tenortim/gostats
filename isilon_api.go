@@ -79,8 +79,53 @@ const sessionPath = "/session/1/session"
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
 const statInfoPath = "/platform/1/statistics/keys/"
+const summaryStatsPath = "/platform/3/statistics/summary/"
+
+// Summary stats will be persisted as "node.summary.<stat_type>"
+const summaryStatsBasename = "node.summary."
 
 const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
+
+// SummaryStatsProtocol stores the return from the /3/statistics/summary/statistics endpoint\
+// which returns an array of protocol summary stats or an array of errors
+type SummaryStatsProtocol struct {
+	// A list of errors that may be returned.
+	Errors []ApiError `json:"errors,omitempty"`
+	// or the array of summary stats
+	Protocol []SummaryStatsProtocolItem `json:"protocol,omitempty"`
+}
+
+// An object describing a single error.
+type ApiError struct {
+	Code    string  `json:"code"`            // The error code.
+	Field   *string `json:"field,omitempty"` // The field with the error if applicable.
+	Message string  `json:"message"`         // The error message.
+
+}
+
+type SummaryStatsProtocolItem struct {
+	Class           string  `json:"class"`             // The class of the operation.
+	In              float64 `json:"in"`                // Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data.
+	InAvg           float64 `json:"in_avg"`            // Average input (received) bytes for an operation, in bytes.
+	InMax           float64 `json:"in_max"`            // Maximum input (received) bytes for an operation, in bytes.
+	InMin           float64 `json:"in_min"`            // Minimum input (received) bytes for an operation, in bytes.
+	InStandardDev   float64 `json:"in_standard_dev"`   // Standard deviation for input (received) bytes for an operation, in bytes.
+	Node            *int64  `json:"node"`              // The node on which the operation was performed.
+	Operation       string  `json:"operation"`         // The operation performed.
+	OperationCount  int64   `json:"operation_count"`   // The number of times an operation has been performed.
+	OperationRate   float64 `json:"operation_rate"`    // The rate (in ops/second) at which an operation has been performed.
+	Out             float64 `json:"out"`               // Rate of output (in bytes/second) for an operation since the last time isi statistics collected the data.
+	OutAvg          float64 `json:"out_avg"`           // Average output (sent) bytes for an operation, in bytes.
+	OutMax          float64 `json:"out_max"`           // Maximum output (sent) bytes for an operation, in bytes.
+	OutMin          float64 `json:"out_min"`           // Minimum output (sent) bytes for an operation, in bytes.
+	OutStandardDev  float64 `json:"out_standard_dev"`  // Standard deviation for output (received) bytes for an operation, in bytes.
+	Protocol        string  `json:"protocol"`          // The protocol of the operation.
+	Time            int64   `json:"time"`              // Unix Epoch time in seconds of the request.
+	TimeAvg         float64 `json:"time_avg"`          // The average elapsed time (in microseconds) taken to complete an operation.
+	TimeMax         float64 `json:"time_max"`          // The maximum elapsed time (in microseconds) taken to complete an operation.
+	TimeMin         float64 `json:"time_min"`          // The minimum elapsed time (in microseconds) taken to complete an operation.
+	TimeStandardDev float64 `json:"time_standard_dev"` // The standard deviation time (in microseconds) taken to complete an operation.
+}
 
 // initialize handles setting up the API client
 func (c *Cluster) initialize() error {
@@ -257,6 +302,42 @@ func (c *Cluster) Connect() error {
 	return nil
 }
 
+// UnmarshalSummaryStatsProtocol unmarshals the JSON return from the summary stats protocol endpoint
+func UnmarshalSummaryStatsProtocol(data []byte) (SummaryStatsProtocol, error) {
+	var r SummaryStatsProtocol
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+// GetSummaryProtocolStats queries the summary stats protocol endpoint and returns a SummaryStatsProtocol struct or an error
+func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) {
+	path := summaryStatsPath + "protocol?degraded=true"
+	log.Infof("fetching protocol summary stats from cluster %s", c)
+	resp, err := c.restGet(path)
+	if err != nil {
+		log.Errorf("cluster %s failed to get protocol summary stats: %v\n", c, err)
+		// TODO investigate handling partial errors rather than totally failing?
+		return nil, err
+	}
+	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
+	// when using session cookies)
+	log.Debugf("cluster %s got response %s", c, resp)
+	r, err := UnmarshalSummaryStatsProtocol(resp)
+	if err != nil {
+		errmsg := fmt.Errorf("cluster %s unable to parse protocol summary stats response %q - error %s", c, resp, err)
+		return nil, errmsg
+	}
+	if r.Errors != nil {
+		// Theoretically, the Errors array can contain multiple entries
+		// I haven't ever seen that, so we just take the first entry here
+		apiError := r.Errors[0]
+		errmsg := fmt.Errorf("protocol summary stats endpoint for cluster %s returned error code %s, message %s", c.ClusterName, apiError.Code, apiError.Message)
+		return nil, errmsg
+	}
+	log.Debugf("cluster %s successfully decoded %d protocol summary stats", c, len(r.Protocol))
+	return r.Protocol, nil
+}
+
 // GetStats takes an array of statistics keys and returns an
 // array of StatResult structures
 func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
@@ -305,15 +386,24 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 
 // parseStatResult is currently very basic and just unmarshals the JSON API return
 func parseStatResult(res []byte) ([]StatResult, error) {
-	// XXX need to handle errors response here!
 	sa := struct {
 		Stats []StatResult `json:"stats"`
 	}{}
 	err := json.Unmarshal(res, &sa)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return sa.Stats, nil
 	}
-	return sa.Stats, nil
+	var errors []ApiError
+	err = json.Unmarshal(res, &errors)
+	if err != nil {
+		errmsg := fmt.Errorf("unable to parse current stats endpoint result: %s", res)
+		return nil, errmsg
+	}
+	// Theoretically, the Errors array can contain multiple entries
+	// I haven't ever seen that, so we just take the first entry here
+	apiError := errors[0]
+	errmsg := fmt.Errorf("stats endpoint returned error code %s, message %s", apiError.Code, apiError.Message)
+	return nil, errmsg
 }
 
 // fetchStatDetails gathers and returns the API-provided metadata for the given set of stats
