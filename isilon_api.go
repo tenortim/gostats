@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -45,6 +46,7 @@ type Cluster struct {
 	reauthTime   time.Time
 	maxRetries   int
 	PreserveCase bool
+	badStats     mapset.Set[string]
 }
 
 // StatResult contains the information returned for a single stat key
@@ -111,6 +113,7 @@ func (c *Cluster) initialize() error {
 		Jar:       jar,
 	}
 	c.baseURL = "https://" + c.Hostname + ":" + strconv.Itoa(c.Port)
+	c.badStats = mapset.NewSet[string]()
 	return nil
 }
 

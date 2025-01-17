@@ -56,35 +56,18 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 	return nil
 }
 
-// WriteStats takes an array of StatResults and writes them to InfluxDB
-func (s *InfluxDBSink) WriteStats(stats []StatResult) error {
+func (s *InfluxDBSink) WritePoints(points []Point) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
 		return fmt.Errorf("unable to create InfluxDB batch points - %v", err.Error())
 	}
-	for _, stat := range stats {
+	for _, point := range points {
 		var pts []*client.Point
-		var fa []ptFields
-		var ta []ptTags
-
-		if stat.ErrorCode != 0 {
-			if !s.badStats.Contains(stat.Key) {
-				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, s.cluster, stat.ErrorString)
-			}
-			// add it to the set of bad (unavailable) stats
-			s.badStats.Add(stat.Key)
-			continue
-		}
-		fa, ta, err = DecodeStat(s.cluster, stat)
-		if err != nil {
-			// TODO consider trying to recover/handle errors
-			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
-		}
-		for i, f := range fa {
+		for i, f := range point.fields {
 			var pt *client.Point
-			pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
+			pt, err = client.NewPoint(point.name, point.tags[i], f, time.Unix(point.time, 0).UTC())
 			if err != nil {
-				log.Warningf("failed to create point %q:%v", stat.Key, stat.Value)
+				log.Warningf("failed to create point for measurement %q", point.name)
 				continue
 			}
 			pts = append(pts, pt)

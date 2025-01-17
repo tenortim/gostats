@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -347,64 +346,42 @@ func (s *PrometheusSink) addMetricFamily(sample *Sample, mname string, desc stri
 	addSample(fam, sample, sampleID)
 }
 
-// WriteStats takes an array of StatResults and exposes them on the /metrics endpoint
-func (s *PrometheusSink) WriteStats(stats []StatResult) error {
+func (s *PrometheusSink) WritePoints(points []Point) error {
 	// Currently only one thread writing at any one time, but let's protect ourselves
 	s.Lock()
 	defer s.Unlock()
 
 	now := time.Now()
 
-	for _, stat := range stats {
-		var fa []ptFields
-		var ta []ptTags
-		var err error
-
-		promstat, ok := s.metricMap[stat.Key]
+	for _, point := range points {
+		promstat, ok := s.metricMap[point.name]
 		if !ok {
-			log.Fatalf("unable to find metric map entry for stat %+v", stat)
+			log.Fatalf("unable to find metric map entry for point %+v", point)
 		}
 		if !promstat.detail.valid {
-			log.Debugf("skipping invalid stat %v", stat.Key)
+			log.Debugf("skipping invalid stat %v", point.name)
 			continue
 		}
-		if stat.ErrorCode != 0 {
-			log.Warningf("Unable to retrieve stat %v, error %v, code %v", stat.Key, stat.ErrorString, stat.ErrorCode)
-			if stat.ErrorCode == 9 {
-				// Some stats are not valid on some configurations e.g. virtual, so drop them.
-				log.Warningf("setting stat %v to invalid", stat.Key)
-				s.metricMap[stat.Key].detail.valid = false
-			}
-			continue
-		}
-		fa, ta, err = DecodeStat(s.cluster, stat)
-		if err != nil {
-			// TODO consider trying to recover/handle errors
-			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
-		}
-		if len(fa) == 0 {
-			continue
-		}
-
 		// expire the stats based off their update interval
 		expiration := time.Duration(promstat.detail.updateIntvl) * time.Second
 		// Clamp value: cf calcBuckets() in main.go
 		if expiration < 5 {
 			expiration = time.Duration(5 * time.Second)
 		}
-		for i, fields := range fa {
-			sampleID := CreateSampleID(ta[i])
+		for i, fields := range point.fields {
+			sampleID := CreateSampleID(point.tags[i])
 			labels := make(prometheus.Labels)
-			labels["cluster"] = s.cluster
-			if stat.Devid != 0 {
-				labels["node"] = strconv.Itoa(stat.Devid)
-			}
+			// XXX This should already be being handled by the setting of labels from tags loop below
+			// labels["cluster"] = s.cluster
+			// if stat.Devid != 0 {
+			// 	labels["node"] = strconv.Itoa(stat.Devid)
+			// }
 			// is this a multi-valued stat e.g., proto stats detail?
 			multiValued := false
 			if len(fields) > 1 {
 				multiValued = true
 			}
-			basename := promStatBasename(stat.Key)
+			basename := promStatBasename(point.name)
 			for k, v := range fields {
 				var name string
 				// ugly special case handling
@@ -420,11 +397,11 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 				}
 				value, ok := v.(float64)
 				if !ok {
-					log.Errorf("cannot convert field value for stat %v to float64", stat.Key)
-					log.Errorf("stat = %+v, field = %+v", stat, k)
+					log.Errorf("cannot convert field value for stat %v to float64", point.name)
+					log.Errorf("point = %+v, field = %+v", point, k)
 					panic("unexpected unconvertable value")
 				}
-				for tag, value := range ta[i] {
+				for tag, value := range point.tags[i] {
 					log.Debugf("setting label %v to %v", tag, value)
 					labels[tag] = value
 				}
@@ -433,7 +410,7 @@ func (s *PrometheusSink) WriteStats(stats []StatResult) error {
 				sample := &Sample{
 					Labels:     labels,
 					Value:      value,
-					Timestamp:  time.Unix(stat.UnixTime, 0),
+					Timestamp:  time.Unix(point.time, 0),
 					Expiration: now.Add(expiration),
 				}
 				s.addMetricFamily(sample, name, promstat.description, sampleID)

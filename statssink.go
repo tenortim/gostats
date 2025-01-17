@@ -4,6 +4,6 @@ package main
 type DBWriter interface {
 	// Initialize a statssink
 	Init(clusterName string, config *tomlConfig, ci int, sg map[string]statDetail) error
-	// Write a stat to the sink
-	WriteStats(stats []StatResult) error
+	// Write an array of points to the sink
+	WritePoints(points []Point) error
 }

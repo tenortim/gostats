@@ -54,34 +54,10 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	return nil
 }
 
-// WriteStats takes an array of StatResults and writes them to InfluxDBv2
-func (s *InfluxDBv2Sink) WriteStats(stats []StatResult) error {
-	for _, stat := range stats {
-		var fa []ptFields
-		var ta []ptTags
-		var err error
-
-		if stat.ErrorCode != 0 {
-			if !s.badStats.Contains(stat.Key) {
-				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, s.cluster, stat.ErrorString)
-			}
-			// add it to the set of bad (unavailable) stats
-			s.badStats.Add(stat.Key)
-			continue
-		}
-		fa, ta, err = DecodeStat(s.cluster, stat)
-		if err != nil {
-			// TODO consider trying to recover/handle errors
-			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
-		}
-		for i, f := range fa {
-			//var pt *client.Point
-			//pt, err = client.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
-			//if err != nil {
-			//	log.Warningf("failed to create point %q:%v", stat.Key, stat.Value)
-			//	continue
-			//}
-			pt := influxdb2.NewPoint(stat.Key, ta[i], f, time.Unix(stat.UnixTime, 0).UTC())
+func (s *InfluxDBv2Sink) WritePoints(points []Point) error {
+	for _, point := range points {
+		for i, field := range point.fields {
+			pt := influxdb2.NewPoint(point.name, point.tags[i], field, time.Unix(point.time, 0).UTC())
 			s.writeAPI.WritePoint(pt)
 		}
 	}

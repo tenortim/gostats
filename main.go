@@ -140,7 +140,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was logging changes in v0.21
-	case "0.23", "0.22", "0.21":
+	case "0.24", "0.23", "0.22", "0.21":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
@@ -402,7 +402,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		// write stats, now with retries
 		retryTime = time.Second * time.Duration(gc.ProcessorRetryIntvl)
 		for i := 1; i <= gc.ProcessorMaxRetries; i++ {
-			err = ss.WriteStats(sr)
+			err = c.WriteStats(ss, sr)
 			if err == nil {
 				break
 			}

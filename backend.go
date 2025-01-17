@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -8,15 +9,25 @@ import (
 // a single stat can return values for min, max and avg of
 // several measures such as op rate or latency
 
+// Point represents a single named measurement at a given time in a timeseries data set.
+// Because some OneFS statistics return multiple sets of data with unique combinations
+// of tags, there is a single measurement name, and timestamp, but an array of
+// field names/values, and an array of tag names/values.
+type Point struct {
+	name   string
+	time   int64
+	fields []ptFields
+	tags   []ptTags
+}
+
 // ptFields maps the fields for a given instance of a metric to their values
 type ptFields map[string]any
 
 // ptTags maps the tags for a given instance of a metric to their values
 type ptTags map[string]string
 
-// ptTagmapCopy makes a copy of the given tag map
-// in the case where a metric yields an array of points, each point
-// needs its own distinct set of tags
+// ptTagmapCopy makes a copy of the given tag map.
+// When a metric yields an array of points, each point needs its own distinct set of tags
 func ptTagmapCopy(tags ptTags) ptTags {
 	copy := ptTags{}
 	for k, v := range tags {
@@ -26,7 +37,7 @@ func ptTagmapCopy(tags ptTags) ptTags {
 }
 
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
-// out into fields and tags usable by the back end writers
+// out into fields and tags usable by the back end writers.
 func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 	var baseTags ptTags
 	clusterStatTags := ptTags{"cluster": cluster}
@@ -134,4 +145,32 @@ func isInvalidStat(fields *ptFields) bool {
 		return true
 	}
 	return false
+}
+
+// WriteStats takes an array of StatResults and writes them to the requested backend database
+func (c *Cluster) WriteStats(ss DBWriter, stats []StatResult) error {
+	points := make([]Point, 0, len(stats)) // try to preallocate at least some space here
+	for _, stat := range stats {
+		if stat.ErrorCode != 0 {
+			if !c.badStats.Contains(stat.Key) {
+				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, c.ClusterName, stat.ErrorString)
+			}
+			// add it to the set of bad (unavailable) stats
+			c.badStats.Add(stat.Key)
+			continue
+		}
+		fa, ta, err := DecodeStat(c.ClusterName, stat)
+		if err != nil {
+			// TODO consider trying to recover/handle errors
+			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
+		}
+		point := Point{name: stat.Key, time: stat.UnixTime, fields: fa, tags: ta}
+		points = append(points, point)
+	}
+	// write the points to the database
+	err := ss.WritePoints(points)
+	if err != nil {
+		return fmt.Errorf("failed to write batch of points - %v", err.Error())
+	}
+	return nil
 }

@@ -16,8 +16,7 @@ func (s *DiscardSink) Init(clusterName string, _ *tomlConfig, _ int, _ map[strin
 	return nil
 }
 
-// WriteStats takes an array of StatResults and discards them
-func (s *DiscardSink) WriteStats(stats []StatResult) error {
-	// consider debug/trace statement here for stat count
+// WritePoints takes an array of Points and discards them
+func (s *DiscardSink) WritePoints(points []Point) error {
 	return nil
 }
