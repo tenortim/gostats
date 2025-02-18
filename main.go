@@ -341,9 +341,8 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	// initialize minHeap/pq with our time-based buckets
 	startTime := time.Now()
 	pq := make(PriorityQueue, len(statBuckets))
-	i := 0
-	for _, v := range statBuckets {
-		value := PqValue{StatTypeRegularStat, &v}
+	for i := range statBuckets {
+		value := PqValue{StatTypeRegularStat, &statBuckets[i]}
 		pq[i] = &Item{
 			value:    value, // statTimeSet
 			priority: startTime,
@@ -351,6 +350,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		}
 		i++
 	}
+	i := len(pq)
 	// add entries for summary stats
 	if config.SummaryStats.Protocol {
 		item := Item{
@@ -359,6 +359,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			index:    i,
 		}
 		pq = append(pq, &item)
+		i++
 	}
 	heap.Init(&pq)
 
@@ -416,7 +417,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 				return
 			}
 		} else if nextItem.value.stattype == StatTypeSummaryStatProtocol {
-			log.Debugf("collecting protocol summary stats for cluster %c here", c.ClusterName)
+			log.Debugf("collecting protocol summary stats for cluster %s here", c.ClusterName)
 			ssp, err := c.GetSummaryProtocolStats()
 			if err != nil {
 				log.Errorf("failed to collect summary protocol stats: %v", err)

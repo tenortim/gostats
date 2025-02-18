@@ -86,7 +86,7 @@ const summaryStatsBasename = "node.summary."
 
 const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 
-// SummaryStatsProtocol stores the return from the /3/statistics/summary/statistics endpoint\
+// SummaryStatsProtocol stores the return from the /3/statistics/summary/statistics endpoint
 // which returns an array of protocol summary stats or an array of errors
 type SummaryStatsProtocol struct {
 	// A list of errors that may be returned.
