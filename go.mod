@@ -1,6 +1,6 @@
 module timw/isilon/gostats
 
-go 1.21
+go 1.23.0
 
 toolchain go1.23.4
 
@@ -10,7 +10,7 @@ require (
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/prometheus/client_golang v1.20.5
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.38.0
 )
 
 require (
@@ -29,6 +29,6 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	google.golang.org/protobuf v1.36.3 // indirect
 )
