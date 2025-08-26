@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -68,6 +73,32 @@ type MetricFamily struct {
 	LabelSet map[string]int
 	// Desc contains the detailed description for this metric
 	Desc string
+}
+
+// Wrapper to set socket reuse options
+func createListener(addr string) (net.Listener, error) {
+	// Create Listener Config
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				// Enable SO_REUSEADDR
+				err := syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+				if err != nil {
+					log.Warningf("Could not set SO_REUSEADDR socket option: %s", err)
+				}
+
+				// Enable SO_REUSEPORT
+				err = syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+				if err != nil {
+					log.Warningf("Could not set SO_REUSEPORT socket option: %s", err)
+				}
+			})
+		},
+	}
+
+	// Start Listener
+	l, err := lc.Listen(context.Background(), "tcp", addr)
+	return l, err
 }
 
 // GetPrometheusWriter returns an Prometheus DBWriter
@@ -154,8 +185,13 @@ func startPromSdListener(conf tomlConfig) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", &h)
 	addr := fmt.Sprintf(":%d", conf.PromSD.SDport)
+	listener, err := createListener(addr)
+	if err != nil {
+		return fmt.Errorf("error creating listener for Prometheus HTTP SD: %w", err)
+	}
+	log.Infof("Starting Prometheus HTTP SD listener on %s", addr)
 	// XXX improve error handling here?
-	go func() { log.Error(http.ListenAndServe(addr, mux)) }()
+	go func() { log.Error(http.Serve(listener, mux)) }()
 	return nil
 }
 
@@ -185,12 +221,17 @@ func (p *PrometheusClient) Connect() error {
 		Handler: mux,
 	}
 
+	listener, err := createListener(addr)
+	if err != nil {
+		return fmt.Errorf("error creating listener for Prometheus client: %w", err)
+	}
+
 	go func() {
 		var err error
 		if p.TLSCert != "" && p.TLSKey != "" {
-			err = p.server.ListenAndServeTLS(p.TLSCert, p.TLSKey)
+			err = p.server.ServeTLS(listener, p.TLSCert, p.TLSKey)
 		} else {
-			err = p.server.ListenAndServe()
+			err = p.server.Serve(listener)
 		}
 		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("error creating prometheus metric endpoint, err: %s\n",
@@ -392,7 +433,7 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 				}
 				value, ok := v.(float64)
 				if !ok {
-					log.Errorf("cannot convert field value for stat %v to float64", point.name)
+					log.Errorf("cannot convert field value %v for stat %v to float64", v, point.name)
 					log.Errorf("point = %+v, field = %+v", point, k)
 					panic("unexpected unconvertable value")
 				}
