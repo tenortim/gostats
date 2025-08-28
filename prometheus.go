@@ -34,7 +34,7 @@ type PrometheusClient struct {
 type PrometheusSink struct {
 	cluster   string
 	client    PrometheusClient
-	metricMap map[string]*PrometheusStat
+	metricMap map[string]*statDetail
 
 	sync.Mutex
 	fam map[string]*MetricFamily
@@ -42,14 +42,6 @@ type PrometheusSink struct {
 
 const NAMESPACE = "isilon"
 const BASESTATNAME = "stat"
-
-// PrometheusStat holds the necessary stat metadata for the Prometheus backend
-// this includes API stats metadata, whether the stats is multivalued and a mapping
-// of the stat fields to the internal detail (gauge pointer)
-type PrometheusStat struct {
-	detail      statDetail
-	description string
-}
 
 // SampleID uniquely identifies a Sample
 type SampleID string
@@ -266,10 +258,19 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 
 	s.fam = make(map[string]*MetricFamily)
 
-	metricMap := make(map[string]*PrometheusStat)
+	metricMap := make(map[string]*statDetail)
+	// regular stat information
 	for stat, detail := range sd {
-		promstat := PrometheusStat{detail: detail, description: detail.description}
-		metricMap[stat] = &promstat
+		metricMap[stat] = &detail
+	}
+	// protocol summary stat information
+	if config.SummaryStats.Protocol {
+		sd := statDetail{
+			description: "Summary statistics for protocol",
+			valid:       true,
+			updateIntvl: 5,
+		}
+		metricMap[summaryStatsBasename+"protocol"] = &sd
 	}
 	s.metricMap = metricMap
 
@@ -399,12 +400,12 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 		if !ok {
 			log.Fatalf("unable to find metric map entry for point %+v", point)
 		}
-		if !promstat.detail.valid {
+		if !promstat.valid {
 			log.Debugf("skipping invalid stat %v", point.name)
 			continue
 		}
 		// expire the stats based off their update interval
-		expiration := time.Duration(promstat.detail.updateIntvl) * time.Second
+		expiration := time.Duration(promstat.updateIntvl) * time.Second
 		// Clamp value: cf calcBuckets() in main.go
 		if expiration < 5 {
 			expiration = time.Duration(5 * time.Second)
@@ -431,18 +432,26 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 				} else {
 					name = promStatNameWithField(basename, k)
 				}
-				value, ok := v.(float64)
-				if !ok {
+				var value float64
+				switch v := v.(type) {
+				case float64:
+					value = v
+				case int:
+					value = float64(v)
+				case int64:
+					value = float64(v)
+				default:
 					log.Errorf("cannot convert field value %v for stat %v to float64", v, point.name)
 					log.Errorf("point = %+v, field = %+v", point, k)
 					panic("unexpected unconvertable value")
 				}
+				log.Debugf("setting metric %v to %v", name, value)
 				for tag, value := range point.tags[i] {
 					log.Debugf("setting label %v to %v", tag, value)
 					labels[tag] = value
 				}
 
-				log.Debugf("setting metric %v to %v", name, v.(float64))
+				log.Debugf("setting metric %v to %v", name, value)
 				sample := &Sample{
 					Labels:     labels,
 					Value:      value,
@@ -452,7 +461,6 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 				s.addMetricFamily(sample, name, promstat.description, sampleID)
 			}
 		}
-
 	}
 	return nil
 }
