@@ -4,7 +4,7 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.25"
+version = "v0.27"
 
 logfile = "gostats.log"
 log_to_stdout = false
@@ -131,6 +131,7 @@ verify-ssl = true
 
 [summary_stats]
 protocol = false
+client = false
 
 ################## End of summary stat group configuration ####################
 

@@ -272,6 +272,14 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 		}
 		metricMap[summaryStatsBasename+"protocol"] = &sd
 	}
+	if config.SummaryStats.Client {
+		sd := statDetail{
+			description: "Summary statistics for client",
+			valid:       true,
+			updateIntvl: 5,
+		}
+		metricMap[summaryStatsBasename+"client"] = &sd
+	}
 	s.metricMap = metricMap
 
 	// Set up http server here

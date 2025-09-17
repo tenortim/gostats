@@ -91,6 +91,7 @@ type clusterConf struct {
 
 type summaryStatConfig struct {
 	Protocol bool // protocol summary stats enabled?
+	Client   bool // client summary stats enabled?
 }
 
 // The collector partitions the stats to be collected into two tiers.

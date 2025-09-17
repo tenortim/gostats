@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.26"
+const Version = "0.27"
 const userAgent = "gostats/" + Version
 
 const (
@@ -140,7 +140,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was addition of summary stats in v0.25
-	case "0.25", "0.26":
+	case "0.25", "0.26", "0.27":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
@@ -361,6 +361,15 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		pq = append(pq, &item)
 		i++
 	}
+	if config.SummaryStats.Client {
+		item := Item{
+			value:    PqValue{StatTypeSummaryStatClient, nil},
+			priority: startTime,
+			index:    i,
+		}
+		pq = append(pq, &item)
+		i++
+	}
 	heap.Init(&pq)
 
 	// Configure/initialize backend database writer
@@ -441,7 +450,35 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			}
 			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
 			heap.Push(&pq, nextItem)
+		} else if nextItem.value.stattype == StatTypeSummaryStatClient {
+			log.Debugf("collecting client summary stats for cluster %s here", c.ClusterName)
+			ssc, err := c.GetSummaryClientStats()
+			if err != nil {
+				log.Errorf("failed to collect summary client stats: %v", err)
+			} else {
+				name := summaryStatsBasename + "client"
+				points := make([]Point, len(ssc))
+				for i, ss := range ssc {
+					var fa []ptFields
+					var ta []ptTags
+					fields, tags := DecodeClientSummaryStat(c.ClusterName, ss)
+					fa = append(fa, fields)
+					ta = append(ta, tags)
+					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
+				}
+				log.Debugf("Cluster %s start writing client summary stats to back end", c.ClusterName)
+				err = ss.WritePoints(points)
+				if err != nil {
+					log.Errorf("unable to write client summary stats to database, stopping collection for cluster %s", c.ClusterName)
+					return
+				}
+			}
+			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
+			heap.Push(&pq, nextItem)
+		} else {
+			log.Panicf("logic error: unknown summary stat type %v", nextItem.value.stattype)
 		}
+
 	}
 }
 

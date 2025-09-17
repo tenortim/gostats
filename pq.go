@@ -13,6 +13,7 @@ type StatType int
 const (
 	StatTypeRegularStat StatType = iota
 	StatTypeSummaryStatProtocol
+	StatTypeSummaryStatClient
 )
 
 // value is must be able to hold either regular stat info or summary stat info

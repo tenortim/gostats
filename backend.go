@@ -65,6 +65,40 @@ func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (pt
 	return fields, tags
 }
 
+func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFields, ptTags) {
+	tags := ptTags{"cluster": cluster}
+	fields := make(ptFields)
+	if css.Node != nil {
+		tags["node"] = strconv.FormatInt(*css.Node, 10)
+	}
+	tags["class"] = css.Class
+	fields["in"] = css.In
+	fields["in_avg"] = css.InAvg
+	fields["in_max"] = css.InMax
+	fields["in_min"] = css.InMin
+	tags["local_addr"] = css.LocalAddr
+	tags["local_name"] = css.LocalName
+	fields["num_operations"] = css.NumOperations
+	fields["operation_rate"] = css.OperationRate
+	tags["protocol"] = css.Protocol
+	fields["out"] = css.Out
+	fields["out_avg"] = css.OutAvg
+	fields["out_max"] = css.OutMax
+	fields["out_min"] = css.OutMin
+	tags["remote_addr"] = css.RemoteAddr
+	tags["remote_name"] = css.RemoteName
+	fields["time"] = css.Time
+	fields["time_avg"] = css.TimeAvg
+	fields["time_max"] = css.TimeMax
+	fields["time_min"] = css.TimeMin
+	if css.User != nil {
+		tags["user_id"] = css.User.ID
+		tags["user_name"] = css.User.Name
+		tags["user_type"] = css.User.Type
+	}
+	return fields, tags
+}
+
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
 func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {

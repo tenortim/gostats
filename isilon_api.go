@@ -127,6 +127,42 @@ type SummaryStatsProtocolItem struct {
 	TimeStandardDev float64 `json:"time_standard_dev"` // The standard deviation time (in microseconds) taken to complete an operation.
 }
 
+type SummaryStatsClient struct {
+	// A list of errors that may be returned.
+	Errors []ApiError `json:"errors,omitempty"`
+	// or the array of summary stats
+	Client []SummaryStatsClientItem `json:"client,omitempty"`
+}
+
+type SummaryStatsClientItem struct {
+	Class         string  `json:"class"`
+	In            float64 `json:"in"`
+	InAvg         float64 `json:"in_avg"`
+	InMax         float64 `json:"in_max"`
+	InMin         float64 `json:"in_min"`
+	LocalAddr     string  `json:"local_addr"`
+	LocalName     string  `json:"local_name"`
+	Node          *int64  `json:"node"`
+	NumOperations int64   `json:"num_operations"`
+	OperationRate float64 `json:"operation_rate"`
+	Out           float64 `json:"out"`
+	OutAvg        float64 `json:"out_avg"`
+	OutMax        float64 `json:"out_max"`
+	OutMin        float64 `json:"out_min"`
+	Protocol      string  `json:"protocol"`
+	RemoteAddr    string  `json:"remote_addr"`
+	RemoteName    string  `json:"remote_name"`
+	Time          int64   `json:"time"`
+	TimeAvg       float64 `json:"time_avg"`
+	TimeMax       float64 `json:"time_max"`
+	TimeMin       float64 `json:"time_min"`
+	User          *struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"user,omitempty"`
+}
+
 // initialize handles setting up the API client
 func (c *Cluster) initialize() error {
 	// already initialized?
@@ -336,6 +372,42 @@ func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) 
 	}
 	log.Debugf("cluster %s successfully decoded %d protocol summary stats", c, len(r.Protocol))
 	return r.Protocol, nil
+}
+
+// UnmarshalSummaryStatsClient unmarshals the JSON return from the summary stats client endpoint
+func UnMarshalSummaryStatsClient(data []byte) (SummaryStatsClient, error) {
+	var r SummaryStatsClient
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+// GetSummaryClientStats queries the summary stats client endpoint and returns a SummaryStatsClient struct or an error
+func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
+	path := summaryStatsPath + "client?degraded=true"
+	log.Infof("fetching client summary stats from cluster %s", c)
+	resp, err := c.restGet(path)
+	if err != nil {
+		log.Errorf("cluster %s failed to get client summary stats: %v\n", c, err)
+		// TODO investigate handling partial errors rather than totally failing?
+		return nil, err
+	}
+	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
+	// when using session cookies)
+	log.Debugf("cluster %s got response %s", c, resp)
+	r, err := UnMarshalSummaryStatsClient(resp)
+	if err != nil {
+		errmsg := fmt.Errorf("cluster %s unable to parse client summary stats response %q - error %s", c, resp, err)
+		return nil, errmsg
+	}
+	if r.Errors != nil {
+		// Theoretically, the Errors array can contain multiple entries
+		// I haven't ever seen that, so we just take the first entry here
+		apiError := r.Errors[0]
+		errmsg := fmt.Errorf("client summary stats endpoint for cluster %s returned error code %s, message %s", c.ClusterName, apiError.Code, apiError.Message)
+		return nil, errmsg
+	}
+	log.Debugf("cluster %s successfully decoded %d client summary stats", c, len(r.Client))
+	return r.Client, nil
 }
 
 // GetStats takes an array of statistics keys and returns an
