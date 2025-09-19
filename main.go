@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.27"
+const Version = "0.28"
 const userAgent = "gostats/" + Version
 
 const (
@@ -126,7 +126,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was addition of summary stats in v0.25
-	case "0.25", "0.26", "0.27":
+	case "0.25", "0.26", "0.27", "0.28":
 		return
 	}
 	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)

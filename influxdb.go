@@ -67,7 +67,7 @@ func (s *InfluxDBSink) WritePoints(points []Point) error {
 			var pt *client.Point
 			pt, err = client.NewPoint(point.name, point.tags[i], f, time.Unix(point.time, 0).UTC())
 			if err != nil {
-				log.Warningf("failed to create point for measurement %q", point.name)
+				log.Warningf("failed to create point for measurement %+v", point)
 				continue
 			}
 			pts = append(pts, pt)

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"maps"
 	"strconv"
 	"time"
 )
@@ -25,16 +27,6 @@ type ptFields map[string]any
 
 // ptTags maps the tags for a given instance of a metric to their values
 type ptTags map[string]string
-
-// ptTagmapCopy makes a copy of the given tag map.
-// When a metric yields an array of points, each point needs its own distinct set of tags
-func ptTagmapCopy(tags ptTags) ptTags {
-	copy := ptTags{}
-	for k, v := range tags {
-		copy[k] = v
-	}
-	return copy
-}
 
 func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (ptFields, ptTags) {
 	tags := ptTags{"cluster": cluster}
@@ -102,7 +94,7 @@ func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
 func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
-	var baseTags ptTags
+	var initialTags ptTags
 	clusterStatTags := ptTags{"cluster": cluster}
 	nodeStatTags := ptTags{"cluster": cluster}
 	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
@@ -110,101 +102,141 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 
 	// Handle cluster vs node stats
 	if stat.Devid == 0 {
-		baseTags = clusterStatTags
+		initialTags = clusterStatTags
 	} else {
 		nodeStatTags["node"] = strconv.Itoa(stat.Devid)
-		baseTags = nodeStatTags
+		initialTags = nodeStatTags
 	}
-
-	switch val := stat.Value.(type) {
-	case float64:
-		fields := make(ptFields)
-		fields["value"] = val
-		mfa = append(mfa, fields)
-		mta = append(mta, baseTags)
-	case string:
-		// This should not happen, and if it does, we won't have a usable value to push to the database
-		log.Warningf("stat %s only has single (unusable) string value", stat.Key)
-		fields := make(ptFields)
-		fields["value"] = val
-		mfa = append(mfa, fields)
-		mta = append(mta, baseTags)
-	case []any:
-		// handle stats that return an array of "values" with distinct tag sets e.g., protostats
-		for _, vl := range val {
-			fields := make(ptFields)
-			tags := ptTagmapCopy(baseTags)
-			switch vv := vl.(type) {
-			case map[string]any:
-				for km, vm := range vv {
-					// values of type string, e.g. op_name are converted to tags
-					switch vm := vm.(type) {
-					case string:
-						tags[km] = vm
-					default:
-						// Ugly code to fix broken unsigned op_id from the API
-						if km == "op_id" {
-							if vm.(float64) == (2 ^ 32 - 1) {
-								vm = float64(-1)
-							}
-						}
-						fields[km] = vm
-					}
-				}
-			default:
-				fields["value"] = vv
-			}
-			if isInvalidStat(&fields) {
-				log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
-			} else {
-				mfa = append(mfa, fields)
-				mta = append(mta, tags)
-			}
-		}
-	case map[string]any:
-		fields := make(ptFields)
-		tags := ptTagmapCopy(baseTags)
-		for km, vm := range val {
-			// values of type string, e.g. op_name are converted to tags
-			switch vm := vm.(type) {
-			case string:
-				tags[km] = vm
-			default:
-				// Ugly code to fix broken unsigned op_id from the API
-				if km == "op_id" {
-					if vm.(float64) == (2 ^ 32 - 1) {
-						vm = float64(-1)
-					}
-				}
-				fields[km] = vm
-			}
-		}
-		if isInvalidStat(&fields) {
-			log.Debugf("Cluster %s, dropping broken change_notify stat", cluster)
-		} else {
-			mfa = append(mfa, fields)
-			mta = append(mta, tags)
-		}
-	case nil:
-		// It seems that the stats API can return nil values where
-		// ErrorString is set, but ErrorCode is 0
-		// Drop these, but log them if log level is high enough
-		log.Debugf("Cluster %s, unable to decode stat %s due to nil value, skipping", cluster, stat.Key)
-	default:
-		// TODO consider returning an error rather than panicing
-		log.Errorf("Unable to decode stat %+v", stat)
-		log.Panicf("Failed to handle unwrap of value type %T\n", stat.Value)
+	mfa, mta, err := decodeValue(stat.Key, "value", stat.Value, initialTags, 0)
+	if err != nil {
+		return nil, nil, err
 	}
 	return mfa, mta, nil
 }
 
-// isInvalidStat checks the supplied fields and returns a boolean which, if true, specifies that
+// decodeValue recursively parses that stat value and flattens the result into an array of fields and tags
+// A few assertions:
+// 1. We will never see a directly nested array
+// 2. Primitive values (float64, int64, int, string) will only be seen at depth 0
+// 3. We will never see a string value (tag) at depth 0
+func decodeValue(statname string, fieldname string, v any, baseTags ptTags, depth int) ([]ptFields, []ptTags, error) {
+	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
+	var mta []ptTags   // metric tag array i.e., array of tag name to tag value mappings for each unique tag set for this metric
+
+	log.Debugf("decodeValue: stat=%s, field=%s, value=%#v, depth=%d", statname, fieldname, v, depth)
+	switch val := v.(type) {
+	case float64, int64, int:
+		log.Debugf("decoding primitive value: %T", val)
+		if fieldname == "" {
+			// We should never get here, as we should have handled this in the parent call
+			log.Panicf("unexpected primitive value with no name in stat %s", statname)
+		}
+		fields := make(ptFields)
+		fields[fieldname] = val
+		log.Debugf("decoded fields: %#v", fields)
+		mfa = append(mfa, fields)
+		mta = append(mta, baseTags)
+	case string:
+		if depth == 0 {
+			// This should not happen, and if it does, we won't have a usable value to push to the database
+			return nil, nil, fmt.Errorf("stat %s only has single (unusable) string value", statname)
+		}
+		tags := maps.Clone(baseTags)
+		tags[fieldname] = val
+		log.Debugf("decoding tag value: %s=%s", fieldname, val)
+		mta = append(mta, tags)
+	case []any:
+		// handle stats that return an array of "values" with distinct tag sets e.g., protostats
+		log.Debugf("decoding array of %d values", len(val))
+		for _, vl := range val {
+			nfa, nta, err := decodeValue(statname, "", vl, baseTags, depth+1)
+			if err != nil {
+				log.Errorf("Failed to decode stat %s: %s", statname, err)
+				return nil, nil, err
+			}
+			log.Debugf("decoded array element to %d fields and %d tags", len(nfa), len(nta))
+			mfa = append(mfa, nfa...)
+			mta = append(mta, nta...)
+		}
+		return mfa, mta, nil
+	case map[string]any:
+		log.Debugf("decoding map with %d keys", len(val))
+		fields := make(ptFields)
+		tags := make(ptTags)
+		maps.Copy(tags, baseTags)
+		subfields := make([]ptFields, 0)
+		subtags := make([]ptTags, 0)
+		// is this a simple map with no sub-arrays?
+		simple := true
+		for km, vm := range val {
+			log.Debugf("decoding map key %s", km)
+			_, isarray := vm.([]any)
+			nfa, nta, err := decodeValue(statname, km, vm, baseTags, depth+1)
+			log.Debugf("decoded map key %s to fields %#v and tags %#v", km, nfa, nta)
+			if err != nil {
+				log.Errorf("Failed to decode stat %s: %s", statname, err)
+				return nil, nil, err
+			}
+			if len(nfa) == 0 {
+				// expected for tag values in a map
+				maps.Copy(tags, nta[0])
+			} else if len(nfa) == 1 && !isarray {
+				// We have a single primitive value, so add it to the base fields
+				maps.Copy(fields, nfa[0])
+			} else if isarray {
+				// We have multiple sub-values, so we need to merge the base fields and tags into each of them
+				simple = false
+				subfields = append(subfields, nfa...)
+				subtags = append(subtags, nta...)
+			} else {
+				// This should not happen
+				log.Panicf("unexpected multiple field values in map key %s of stat %s", km, statname)
+			}
+		}
+		if simple {
+			// We had a simple map with no sub-arrays, so just return the single set of fields and tags
+			log.Debugf("decoded simple map to fields: %#v and tags: %#v", fields, tags)
+			if isInvalidStat(&tags) {
+				log.Debugf("Cluster %s, dropping broken change_notify stat", baseTags["cluster"])
+			} else {
+				mfa = append(mfa, fields)
+				mta = append(mta, tags)
+			}
+		} else {
+			// We had a sub-array, so we need to combine the base fields and tags with each of the sub ones
+			log.Debugf("decoded complex map to %d sub-fields and %d sub-tags", len(subfields), len(subtags))
+			for i := range subfields {
+				var f ptFields
+				var t ptTags
+				f = maps.Clone(fields)
+				t = maps.Clone(tags)
+				// merge the base fields and tags into the sub ones
+				maps.Copy(f, subfields[i])
+				maps.Copy(t, subtags[i])
+				if isInvalidStat(&t) {
+					log.Debugf("Cluster %s, dropping broken change_notify stat", baseTags["cluster"])
+				} else {
+					mfa = append(mfa, f)
+					mta = append(mta, t)
+				}
+			}
+		}
+	default:
+		// TODO consider returning an error rather than panicing
+		log.Errorf("Unable to decode stat %s", statname)
+		log.Panicf("Failed to handle unwrap of value type %T in stat %s\n", val, statname)
+	}
+	log.Debugf("decodeValue returning %d sets of fields and %d sets of tags", len(mfa), len(mta))
+	return mfa, mta, nil
+}
+
+// isInvalidStat checks the supplied tags and returns a boolean which, if true, specifies that
 // this statistic should be dropped.
 //
 // Some statistics (specifically, SMB change notify) have unusual semantics that can result in
 // misleadingly large latency values.
-func isInvalidStat(fields *ptFields) bool {
-	if (*fields)["op_name"] == "change_notify" || (*fields)["op_name"] == "read_directory_change" {
+func isInvalidStat(tags *ptTags) bool {
+	if (*tags)["op_name"] == "change_notify" || (*tags)["op_name"] == "read_directory_change" {
 		return true
 	}
 	return false
