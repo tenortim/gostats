@@ -7,6 +7,8 @@ The Grafana dashboards provided with the data insights project may be used witho
 
 ## Installation Instructions
 
+The current version of gostats requires Golang version 1.21 or higher to build.
+
 * $ go build
 
 ## Run Instructions
@@ -48,24 +50,27 @@ The connector is designed to allow for customization via a plugin architecture. 
 
     ```go
     type InfluxDBSink struct {
-        cluster  string
-        c        client.Client
-        bpConfig client.BatchPointsConfig
+      cluster  string
+      client   client.Client
+      bpConfig client.BatchPointsConfig
+      badStats mapset.Set[string]
     }
     ```
 
   * a function with signature
 
     ```go
-    func (s *InfluxDBSink) Init(cluster string, cluster_conf clusterConf, args []string, sg map[string]statDetail) error
+    func (s *InfluxDBSink) Init(clustername string, config *tomlConfig, ci int, sd map[string]statDetail) error
     ```
 
-  that takes as input the name/ip-address of a cluster, the cluster config definition, a string array of backend-specific initialization parameters, and a map of all of the configured stats, and which initializes the receiver.
-  * Also define a stat-writing function with the following signature:
+    that takes as input the name/ip-address of a cluster, the global config, the index into the config.Clusters struct for this cluster, and a map of all of the configured stats, and which initializes the receiver.
+  * Also define a point-writing function with the following signature:
 
     ```go
-    func (s *InfluxDBSink) WriteStats(stats []StatResult) error
+    func (s *InfluxDBSink) WritePoints(points []Point) error
     ```
+
+    Point is defined in backend.go
 
 * Add the my_plugin.go file to the source directory.
 * Add code to getDBWriter() in main.go to recognize your new backend.

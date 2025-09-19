@@ -1,4 +1,93 @@
+<!-- markdownlint-disable MD024 -->
 # Changelog
+
+## v0.28 - Fri Sep 19 10:29:10 2025 -0700
+
+### Changes
+
+- Rewrite stat decoder, add many tests
+  - The stat decoder is now a general-purpose recursive parser and should be able to handle all OneFS stats.
+- Clean up ugly global variables, add `-version` flag
+
+### Bug fixes
+
+- Fix "isInvalidStat()"
+  - The collector tries to avoid collecting certain "change notify" stats because their definition is problematic and they can skew latency data. The code was checking fields instead of tags and did not remove them.
+
+## v0.27 - Wed Sep 17 14:42:07 2025 -0700
+
+### New features
+
+- Add support for the client summary stats endpoint
+
+## v0.26 - Thu Aug 28 13:29:37 2025 -0700
+
+### Bug fixes
+
+- Fix prometheus summary stats and tidy metricMap
+  - The new protocol summary stats code was broken for Prometheus.
+  - Clean up/simplify metricMap after the points refactor.
+- Fix nasty priority queue bug in v0.25
+
+### New features
+
+- Force socket reuseaddr/reuseport on Prometheus endpoints
+  - Previously, the collector would fail to bind the Prometheus endpoints if it was restarted within the TCP TIME_WAIT window.
+
+### Security fixes
+
+- Github automation: restrict access permissions for the workflow/automation to readonly.
+- Bump golang.org/x/net from 0.34.0 to 0.38.0 to fix minor security issues.
+
+## v0.25 - Mon Feb 17 15:56:22 2025 -0800
+
+### New features
+
+- Add support for protocol summary stats
+  - The stats engine offers several summary statistics endpoints. This commit adds initial support for the protocol summary statistics endpoint.
+
+> [!IMPORTANT]
+> Although the summary stats default to disabled (meaning the older config files are compatible)
+> this is flagged as a breaking change to force updating the config file.
+
+### Security fixes
+
+> [!IMPORTANT]
+> The following changes mean that a minimum version of Golang 1.21 is required to build.
+
+- Update dependencies to latest versions
+  - Fixes dependabot alerts against golang.org/x/net andgoogle.golang.org/protobuf
+- Update go.yml
+  - Update to Go version 1.21 for build because pulling in the latest dependencies updated to 1.21 and that made `go mod tidy` add a toochain directive to go.mod which is not handled by earlier versions.
+
+## v0.24 - Fri Jan 17 08:22:17 2025 -0800
+
+### Changes
+
+- Refactor back end to separate OneFS-specfic code
+  - No externally visible change in functionality
+
+### Bug fixes
+
+- Fix silly issue command-line parsing
+  - We must parse the command line before trying to use any of the flags.
+- Fix build issues with InfluxDBv1
+  - The v1.11.4 tag in the influxdata/influxdb repository was removed (bad) and broke the go module dependency handling. Switch to the standalone InfluxDBv1 client.
+
+## v0.23 - Thu Nov 16 12:37:07 2023 -0800
+
+### New features
+
+- Add InfluxDBv2 support
+  - This is in parallel to the InfluxDBv1 support which remains available in the collector.
+
+## v0.22 - Tue Nov 14 19:17:13 2023 -0800
+
+### Changes
+
+- Add options to preserve case for cluster names
+- Add options to make backend retries configurable
+- Trivial cleanups
 
 ## v0.21 - Mon Nov 13 11:47:43 2023 -0800
 
