@@ -18,10 +18,16 @@ func IsExternalInterface(ifname string) bool {
 	}
 }
 
+// IsIPv4 returns true if the address is IPv4, false if IPv6
+// This is a simple check based on the number of colons in the address
+// It will not catch all cases, but should be sufficient for our needs
 func IsIPv4(address string) bool {
 	return strings.Count(address, ":") < 2
 }
 
+// IsIPv6 returns true if the address is IPv6, false if IPv4
+// This is a simple check based on the number of colons in the address
+// It will not catch all cases, but should be sufficient for our needs
 func IsIPv6(address string) bool {
 	return strings.Count(address, ":") >= 2
 }

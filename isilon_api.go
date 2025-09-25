@@ -52,7 +52,8 @@ type Cluster struct {
 // StatResult contains the information returned for a single stat key
 // when querying the OneFS statistics API.
 // The Value field can be a simple int/float, or it can be a dictionary
-// or an array of dictionaries (e.g. protostats results)
+// or an array of dictionaries (e.g. protostats results), or even more complex
+// nested structures.
 type StatResult struct {
 	Devid       int    `json:"devid"`
 	ErrorString string `json:"error"`
@@ -75,6 +76,7 @@ type statDetail struct {
 	updateIntvl float64
 }
 
+// API endpoint paths
 const sessionPath = "/session/1/session"
 const configPath = "/platform/1/cluster/config"
 const statsPath = "/platform/1/statistics/current"
@@ -103,6 +105,7 @@ type ApiError struct {
 
 }
 
+// SummaryStatsProtocolItem describes a single protocol summary stat entry
 type SummaryStatsProtocolItem struct {
 	Class           string  `json:"class"`             // The class of the operation.
 	In              float64 `json:"in"`                // Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data.
@@ -127,6 +130,8 @@ type SummaryStatsProtocolItem struct {
 	TimeStandardDev float64 `json:"time_standard_dev"` // The standard deviation time (in microseconds) taken to complete an operation.
 }
 
+// SummaryStatsClient stores the return from the /3/statistics/summary/client endpoint
+// which returns an array of client summary stats or an array of errors
 type SummaryStatsClient struct {
 	// A list of errors that may be returned.
 	Errors []ApiError `json:"errors,omitempty"`
@@ -134,6 +139,7 @@ type SummaryStatsClient struct {
 	Client []SummaryStatsClientItem `json:"client,omitempty"`
 }
 
+// SummaryStatsClientItem describes a single client summary stat entry
 type SummaryStatsClientItem struct {
 	Class         string  `json:"class"`
 	In            float64 `json:"in"`
@@ -203,7 +209,7 @@ func (c *Cluster) String() string {
 	return c.ClusterName
 }
 
-// Authenticate authentices to the cluster using the session API endpoint
+// Authenticate authenticates to the cluster using the session API endpoint
 // and saves the cookies needed to authenticate subsequent requests
 func (c *Cluster) Authenticate() error {
 	var err error
@@ -570,7 +576,7 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 	return &detail, nil
 }
 
-// helper function
+// isConnectionRefused checks if the given error is a connection refused error
 func isConnectionRefused(err error) bool {
 	if uerr, ok := err.(*url.Error); ok {
 		if nerr, ok := uerr.Err.(*net.OpError); ok {
@@ -655,6 +661,8 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	return body, err
 }
 
+// newGetRequest creates a new HTTP GET request with the appropriate headers
+// and authentication information
 func (c *Cluster) newGetRequest(url string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

@@ -22,7 +22,7 @@ const ProcessorDefaultRetryIntvl = 5
 // Default Normalizaion of ClusterNames
 const defaultPreserveCase = false
 
-// config file structures
+// tomlConfig defines the top-level structure of the config file
 type tomlConfig struct {
 	Global       globalConfig
 	InfluxDB     influxDBConfig    `toml:"influxdb"`
@@ -34,6 +34,7 @@ type tomlConfig struct {
 	StatGroups   []statGroupConf   `toml:"statgroup"`
 }
 
+// globalConfig defines the global settings in the config file
 type globalConfig struct {
 	Version             string   `toml:"version"`
 	LogFile             *string  `toml:"logfile"`
@@ -47,6 +48,7 @@ type globalConfig struct {
 	PreserveCase        bool     `toml:"preserve_case"` // enable/disable normalization of Cluster Names
 }
 
+// influxDBConfig defines the InfluxDB settings in the config file
 type influxDBConfig struct {
 	Host          string `toml:"host"`
 	Port          string `toml:"port"`
@@ -56,6 +58,7 @@ type influxDBConfig struct {
 	Password      string `toml:"password"`
 }
 
+// influxDBv2Config defines the InfluxDBv2 settings in the config file
 type influxDBv2Config struct {
 	Host   string `toml:"host"`
 	Port   string `toml:"port"`
@@ -64,6 +67,7 @@ type influxDBv2Config struct {
 	Token  string `toml:"access_token"`
 }
 
+// prometheusConfig defines the Prometheus settings in the config file
 type prometheusConfig struct {
 	Authenticated bool   `toml:"authenticated"`
 	Username      string `toml:"username"`
@@ -72,12 +76,14 @@ type prometheusConfig struct {
 	TLSKey        string `toml:"tls_key"`
 }
 
+// promSdConf defines the Prometheus HTTP Service Discovery settings in the config file
 type promSdConf struct {
 	Enabled    bool
 	ListenAddr string `toml:"listen_addr"`
 	SDport     uint64 `toml:"sd_port"`
 }
 
+// clusterConf defines the per-cluster settings in the config file
 type clusterConf struct {
 	Hostname       string  // cluster name/ip; ideally use a SmartConnect name
 	Username       string  // account with the appropriate PAPI roles
@@ -89,6 +95,7 @@ type clusterConf struct {
 	PreserveCase   *bool   `toml:"preserve_case"`   // Overwrite normalization of Cluster Name
 }
 
+// summaryStatConfig defines whether protocol and/or client summary stats are collected
 type summaryStatConfig struct {
 	Protocol bool // protocol summary stats enabled?
 	Client   bool // client summary stats enabled?
@@ -131,6 +138,10 @@ func mustReadConfig(configFileName string) tomlConfig {
 
 const ENVPREFIX = "$env:"
 
+// secretFromEnv checks if the string starts with $env: and if so, looks up
+// the rest of the string as an environment variable and returns its value.
+// If the env var is not set, an error is returned.
+// If the string does not start with $env:, it is returned unchanged.
 func secretFromEnv(s string) (string, error) {
 	if !strings.HasPrefix(s, ENVPREFIX) {
 		return s, nil

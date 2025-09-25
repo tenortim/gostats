@@ -50,7 +50,10 @@ type SampleID string
 type Sample struct {
 	// Labels are the Prometheus labels.
 	Labels map[string]string
-	Value  float64
+	// Value is the Prometheus metric value.
+	// Unlike InfluxDB, Prometheus only supports float64 values and does not support multiple fields
+	// per metric.
+	Value float64
 	// Metric timestamp
 	Timestamp time.Time
 	// Expiration is the deadline that this Sample is valid until.
@@ -67,7 +70,8 @@ type MetricFamily struct {
 	Desc string
 }
 
-// Wrapper to set socket reuse options
+// createListener creates a net.Listener with SO_REUSEADDR and SO_REUSEPORT set
+// on the listening socket.
 func createListener(addr string) (net.Listener, error) {
 	// Create Listener Config
 	lc := net.ListenConfig{
@@ -111,6 +115,7 @@ func promStatNameWithField(basename string, field string) string {
 	// XXX handle problematic naming here too
 }
 
+// auth is a middleware handler to provide basic authentication if configured
 func (p *PrometheusClient) auth(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if p.BasicUsername != "" && p.BasicPassword != "" {
@@ -129,11 +134,13 @@ func (p *PrometheusClient) auth(h http.Handler) http.Handler {
 	})
 }
 
+// httpSdConf holds the configuration for the Prometheus HTTP SD handler
 type httpSdConf struct {
 	ListenIP    string
 	ListenPorts []uint64
 }
 
+// ServeHTTP implements the http.Handler interface for the Prometheus HTTP SD handler
 func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var listenAddrs string
 	w.Header().Set("Content-Type", "application/json")
@@ -288,16 +295,20 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	return err
 }
 
+// Description provides a description of this sink
 func (s *PrometheusSink) Description() string {
 	return "Configuration for the Prometheus client to spawn"
 }
 
-// Implements prometheus.Collector
+// Describe implements prometheus.Collector
 func (s *PrometheusSink) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.NewGauge(prometheus.GaugeOpts{Name: "Dummy", Help: "Dummy"}).Describe(ch)
 }
 
 // Expire removes Samples that have expired.
+// Currently, this is called from Collect() while holding the lock.
+// OneFS stats are not generally valid for every collection interval, so we
+// expire them based on their update interval.
 func (s *PrometheusSink) Expire() {
 	now := time.Now()
 	for name, family := range s.fam {
@@ -362,7 +373,9 @@ func (s *PrometheusSink) Collect(ch chan<- prometheus.Metric) {
 // 	return invalidNameCharRE.ReplaceAllString(value, "_")
 // }
 
-// CreateSampleID creates a SampleID based on the tags of a OneFS.Metric.
+// CreateSampleID creates a SampleID from the given tag map
+// The tags are sorted by key to ensure that the same set of tags always
+// produces the same SampleID
 func CreateSampleID(tags map[string]string) SampleID {
 	pairs := make([]string, 0, len(tags))
 	for k, v := range tags {
@@ -372,6 +385,7 @@ func CreateSampleID(tags map[string]string) SampleID {
 	return SampleID(strings.Join(pairs, ","))
 }
 
+// addSample adds the given Sample to the MetricFamily, updating the LabelSet as required
 func addSample(fam *MetricFamily, sample *Sample, sampleID SampleID) {
 
 	for k := range sample.Labels {
@@ -381,6 +395,8 @@ func addSample(fam *MetricFamily, sample *Sample, sampleID SampleID) {
 	fam.Samples[sampleID] = sample
 }
 
+// addMetricFamily adds the given Sample to the appropriate MetricFamily,
+// creating the MetricFamily if required
 func (s *PrometheusSink) addMetricFamily(sample *Sample, mname string, desc string, sampleID SampleID) {
 	var fam *MetricFamily
 	var ok bool
@@ -396,6 +412,7 @@ func (s *PrometheusSink) addMetricFamily(sample *Sample, mname string, desc stri
 	addSample(fam, sample, sampleID)
 }
 
+// WritePoints writes a batch of points to Prometheus
 func (s *PrometheusSink) WritePoints(points []Point) error {
 	// Currently only one thread writing at any one time, but let's protect ourselves
 	s.Lock()

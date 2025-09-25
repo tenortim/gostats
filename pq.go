@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// Priority Queue implementation for statTimeSet
 // Pretty much copied verbatim from
 // https://golang.org/pkg/container/heap/#example__priorityQueue
 // Just a few name changes
@@ -16,7 +17,9 @@ const (
 	StatTypeSummaryStatClient
 )
 
-// value is must be able to hold either regular stat info or summary stat info
+// PqValue is the value stored in the priority queue
+// it must be able to hold either regular stat info or summary stat info
+// so we use a StatType to indicate which it is
 type PqValue struct {
 	stattype StatType
 	sts      *statTimeSet
@@ -33,13 +36,16 @@ type Item struct {
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 
+// Len is the number of elements in the collection.
 func (pq PriorityQueue) Len() int { return len(pq) }
 
+// Less reports whether the element with index i should sort before the element with index j.
 func (pq PriorityQueue) Less(i, j int) bool {
 	// We want the earliest (smallest) time so use Before
 	return pq[i].priority.Before(pq[j].priority)
 }
 
+// Swap swaps the elements with indexes i and j.
 func (pq PriorityQueue) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
 	pq[i].index = i

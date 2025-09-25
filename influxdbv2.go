@@ -54,6 +54,7 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	return nil
 }
 
+// WritePoints writes a batch of points to InfluxDBv2
 func (s *InfluxDBv2Sink) WritePoints(points []Point) error {
 	for _, point := range points {
 		for i, field := range point.fields {

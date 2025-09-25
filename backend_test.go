@@ -7,6 +7,7 @@ import (
 	"github.com/op/go-logging"
 )
 
+// setMemoryBackend sets the logging backend to an in-memory backend for testing
 func setMemoryBackend() {
 	backend := logging.NewMemoryBackend(65536)
 	logging.SetBackend(backend)

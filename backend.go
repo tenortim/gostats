@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-// stats returned from OneFS can be "multi-valued" i.e.,
-// a single stat can return values for min, max and avg of
-// several measures such as op rate or latency
-
 // Point represents a single named measurement at a given time in a timeseries data set.
 // Because some OneFS statistics return multiple sets of data with unique combinations
 // of tags, there is a single measurement name, and timestamp, but an array of
@@ -28,6 +24,8 @@ type ptFields map[string]any
 // ptTags maps the tags for a given instance of a metric to their values
 type ptTags map[string]string
 
+// DecodeProtocolSummaryStat takes a SummaryStatsProtocolItem and decodes it into
+// fields and tags usable by the back end writers.
 func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (ptFields, ptTags) {
 	tags := ptTags{"cluster": cluster}
 	fields := make(ptFields)
@@ -57,6 +55,8 @@ func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (pt
 	return fields, tags
 }
 
+// DecodeClientSummaryStat takes a SummaryStatsClientItem and decodes it into
+// fields and tags usable by the back end writers.
 func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFields, ptTags) {
 	tags := ptTags{"cluster": cluster}
 	fields := make(ptFields)

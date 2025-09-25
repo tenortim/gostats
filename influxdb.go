@@ -56,6 +56,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 	return nil
 }
 
+// WritePoints writes a batch of points to InfluxDB
 func (s *InfluxDBSink) WritePoints(points []Point) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {

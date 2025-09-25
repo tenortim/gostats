@@ -237,6 +237,23 @@ func parseStatConfig(conf tomlConfig) map[string]statGroup {
 	return statGroups
 }
 
+// parseUpdateIntvl parses the update interval string from the config file
+// and returns a struct with either a multiplier or an absolute time
+// if the string is invalid, a default of 1x multiplier is returned
+// if the absolute time is less than the minimum interval, it is clamped to
+// the minimum
+// valid formats are:
+//
+//	*<multiplier>  - multiplier of the stat's native update interval
+//	<absolute time> - absolute time in seconds (float allowed)
+//	*              - same as *1.0
+//
+// examples:
+//
+//	*2.5  - 2.5 times the stat's native update interval
+//	30    - 30 seconds absolute time
+//	*     - 1x multiplier (no effect)
+//	5.5   - 5.5 seconds absolute time
 func parseUpdateIntvl(interval string, minIntvl int) sgRefresh {
 	// default is 1x multiplier (no effect)
 	dr := sgRefresh{1.0, 0.0}
@@ -269,6 +286,10 @@ type statTimeSet struct {
 	stats    []string
 }
 
+// statsloop is the main collection loop for a single cluster
+// it connects to the cluster, determines the stats to collect and their
+// collection intervals, and then enters a loop collecting and writing
+// stats to the backend database
 func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	var err error
 	var password string
@@ -477,7 +498,14 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	}
 }
 
-// map out sets of stats to collect by update interval
+// calcBuckets calculates the collection buckets for the given cluster
+// based on the stat groups, their multipliers/absolute times, and the
+// individual stat update intervals
+// returns a slice of statTimeSet structs, each containing a collection
+// interval and the list of stats to collect at that interval
+// if a stat is invalid for the cluster, it is skipped with a warning
+// if no valid stats are found, an empty slice is returned
+// mui is the minimum update interval in seconds from the global config
 func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]statDetail) []statTimeSet {
 	stm := make(map[time.Duration][]string)
 	for group := range sg {
@@ -527,7 +555,8 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 	return sts
 }
 
-// return a DBWriter for the given backend name
+// getDBWriter returns a DBWriter implementation based on the plugin name
+// returns an error if the plugin name is not recognized
 func getDBWriter(sp string) (DBWriter, error) {
 	switch sp {
 	case DISCARD_PLUGIN_NAME:
@@ -543,6 +572,9 @@ func getDBWriter(sp string) (DBWriter, error) {
 	}
 }
 
+// verifyStatReturn checks that all requested stats were returned by the API
+// and logs an error if any are missing
+// this is only called if the -check-stat-return flag is set
 func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
 	resultNames := make(map[string]bool)
 	missing := []string{}
