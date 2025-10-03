@@ -9,10 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -75,21 +72,7 @@ type MetricFamily struct {
 func createListener(addr string) (net.Listener, error) {
 	// Create Listener Config
 	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				// Enable SO_REUSEADDR
-				err := syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
-				if err != nil {
-					log.Warningf("Could not set SO_REUSEADDR socket option: %s", err)
-				}
-
-				// Enable SO_REUSEPORT
-				err = syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
-				if err != nil {
-					log.Warningf("Could not set SO_REUSEPORT socket option: %s", err)
-				}
-			})
-		},
+		Control: Control,
 	}
 
 	// Start Listener
