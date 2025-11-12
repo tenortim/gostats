@@ -56,6 +56,7 @@ type Cluster struct {
 // nested structures.
 type StatResult struct {
 	Devid       int    `json:"devid"`
+	Node        *int   `json:"node,omitempty"`
 	ErrorString string `json:"error"`
 	ErrorCode   int    `json:"error_code"`
 	Key         string `json:"key"`
@@ -422,7 +423,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	var results []StatResult
 	var buffer bytes.Buffer
 
-	basePath := statsPath + "?degraded=true&devid=all"
+	basePath := statsPath + "?degraded=true&devid=all&node_info=true"
 	// length of key args
 	la := 0
 	// Need special case for short last get

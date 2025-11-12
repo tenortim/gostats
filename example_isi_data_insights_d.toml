@@ -4,7 +4,7 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.28"
+version = "v0.29"
 
 logfile = "gostats.log"
 log_to_stdout = false

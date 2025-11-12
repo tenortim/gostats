@@ -64,12 +64,18 @@ func TestDecodeStat_String(t *testing.T) {
 	}
 }
 
+// intPtr is a helper function to return a pointer to an int
+func intPtr(i int) *int {
+	return &i
+}
+
 // Test DecodeStat with sing-entry array of maps (multi-valued stat)
 func TestDecodeStat_ShortArrayOfMaps(t *testing.T) {
 	setMemoryBackend()
 	stat := StatResult{
 		Key:   "node.ifs.heat.lock",
 		Devid: 3,
+		Node:  intPtr(3),
 		Value: []any{
 			map[string]any{"op_rate": float64(131.6551361083984), "path": "SYSTEM (0x0)"},
 		},
@@ -81,8 +87,8 @@ func TestDecodeStat_ShortArrayOfMaps(t *testing.T) {
 	if len(fa) != 1 || len(ta) != 1 {
 		t.Fatalf("expected 1 set of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 3 {
-		t.Fatalf("expected 1 field and 3 tags, got %d/%d", len(fa[0]), len(ta[0]))
+	if len(fa[0]) != 1 || len(ta[0]) != 4 {
+		t.Fatalf("expected 1 field and 4 tags, got %d/%d", len(fa[0]), len(ta[0]))
 	}
 	if fa[0]["op_rate"] != float64(131.6551361083984) {
 		t.Errorf("unexpected op_rate value: %v", fa[0]["op_rate"])
@@ -117,7 +123,8 @@ func TestDecodeStat_ArrayOfMaps(t *testing.T) {
 	setMemoryBackend()
 	stat := StatResult{
 		Key:   "node.ifs.heat.lock",
-		Devid: 2,
+		Devid: 16,
+		Node:  intPtr(2),
 		Value: []any{
 			map[string]any{"op_rate": float64(131.6551361083984), "path": "SYSTEM (0x0)"},
 			map[string]any{"op_rate": float64(60.76391220092773), "path": "/ifs/"},
@@ -130,8 +137,8 @@ func TestDecodeStat_ArrayOfMaps(t *testing.T) {
 	if len(fa) != 2 || len(ta) != 2 {
 		t.Fatalf("expected 2 sets of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 3 || len(fa[1]) != 1 || len(ta[1]) != 3 {
-		t.Fatalf("expected 1 field and 3 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
+	if len(fa[0]) != 1 || len(ta[0]) != 4 || len(fa[1]) != 1 || len(ta[1]) != 4 {
+		t.Fatalf("expected 1 field and 4 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
 	}
 	if fa[0]["op_rate"] != float64(131.6551361083984) || fa[1]["op_rate"] != float64(60.76391220092773) {
 		t.Errorf("unexpected op_rate values: %v, %v", fa[0]["op_rate"], fa[1]["op_rate"])
@@ -150,6 +157,7 @@ func TestDecodeStat_ArrayOfMaps_with_Array(t *testing.T) {
 	stat := StatResult{
 		Key:   "node.ifs.heat.lock",
 		Devid: 1,
+		Node:  intPtr(1),
 		Value: []any{
 			map[string]any{
 				"client_id":  1000,
@@ -181,8 +189,8 @@ func TestDecodeStat_ArrayOfMaps_with_Array(t *testing.T) {
 		t.Fatalf("expected 6 sets of fields and tags, got %d/%d", len(fa), len(ta))
 	}
 	for i := range fa {
-		if len(fa[i]) != 4 || len(ta[i]) != 5 {
-			t.Fatalf("field set %v: expected 4 fields and 5 tags, got %d/%d", i, len(fa[i]), len(ta[i]))
+		if len(fa[i]) != 4 || len(ta[i]) != 6 {
+			t.Fatalf("field set %v: expected 4 fields and 6 tags, got %d/%d", i, len(fa[i]), len(ta[i]))
 		}
 		if ta[i]["cluster"] != "clusterC" || ta[i]["node"] != "1" {
 			t.Errorf("tag set %v: expected clusterC/1, got %v", i, ta[i])
@@ -210,7 +218,8 @@ func TestDecodeStat_SimpleMap(t *testing.T) {
 	setMemoryBackend()
 	stat := StatResult{
 		Key:   "node.mds.cache.stats",
-		Devid: 2,
+		Devid: 5,
+		Node:  intPtr(5),
 		Value: map[string]any{"hits": 5191200, "misses": 414440},
 	}
 	fa, ta, err := DecodeStat("clusterD", stat)
@@ -220,8 +229,8 @@ func TestDecodeStat_SimpleMap(t *testing.T) {
 	if len(fa) != 1 || len(ta) != 1 {
 		t.Fatalf("expected 1 set of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 2 || len(ta[0]) != 2 {
-		t.Fatalf("expected 2 fields and 2 tags, got %d/%d", len(fa[0]), len(ta[0]))
+	if len(fa[0]) != 2 || len(ta[0]) != 3 {
+		t.Fatalf("expected 2 fields and 3 tags, got %d/%d", len(fa[0]), len(ta[0]))
 	}
 	if fa[0]["hits"] != 5191200 {
 		t.Errorf("expected hits count 5191200', got %v", fa[0]["hits"])
@@ -229,7 +238,7 @@ func TestDecodeStat_SimpleMap(t *testing.T) {
 	if fa[0]["misses"] != 414440 {
 		t.Errorf("expected misses count 414440, got %v", fa[0]["misses"])
 	}
-	if ta[0]["cluster"] != "clusterD" || ta[0]["node"] != "2" {
+	if ta[0]["cluster"] != "clusterD" || ta[0]["node"] != "5" {
 		t.Errorf("expected clusterD/2, got %v", ta[0])
 	}
 }

@@ -104,7 +104,13 @@ func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
 	if stat.Devid == 0 {
 		initialTags = clusterStatTags
 	} else {
-		nodeStatTags["node"] = strconv.Itoa(stat.Devid)
+		nodeStatTags["devid"] = strconv.Itoa(stat.Devid)
+		if stat.Node != nil {
+			nodeStatTags["node"] = strconv.Itoa(*stat.Node)
+		} else {
+			// Should not happen, but fall back to using devid as node tag
+			nodeStatTags["node"] = nodeStatTags["devid"]
+		}
 		initialTags = nodeStatTags
 	}
 	mfa, mta, err := decodeValue(stat.Key, "value", stat.Value, initialTags, 0)
