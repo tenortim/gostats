@@ -423,7 +423,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	var results []StatResult
 	var buffer bytes.Buffer
 
-	basePath := statsPath + "?degraded=true&devid=all&node_info=true"
+	basePath := statsPath + "?degraded=true&devid=all&show_nodes=true"
 	// length of key args
 	la := 0
 	// Need special case for short last get
