@@ -87,6 +87,20 @@ const summaryStatsPath = "/platform/3/statistics/summary/"
 // Summary stats will be persisted as "node.summary.<stat_type>"
 const summaryStatsBasename = "node.summary."
 
+// Isi stats key error codes
+const (
+	StatErrorNone = iota
+	StatErrorNotPresent
+	StatErrorNotImplemented
+	StatErrorDegraded
+	StatErrorStale
+	StatErrorConnTimeout
+	StatErrorNoHistory
+	StatErrorSystem
+	StatErrorNotConfigured
+	StatErrorNoData
+)
+
 const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 
 // SummaryStatsProtocol stores the return from the /3/statistics/summary/statistics endpoint

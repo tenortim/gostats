@@ -31,21 +31,24 @@ func TestDecodeStat_Float64(t *testing.T) {
 		Devid: 0,
 		Value: float64(88920.0),
 	}
-	fa, ta, err := DecodeStat("clusterA", stat)
+	fa, ta, err := DecodeStat("clusterA", stat, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fa) != 1 || len(ta) != 1 {
 		t.Fatalf("expected 1 set of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 1 {
-		t.Fatalf("expected 1 field and 1 tag, got %d/%d", len(fa[0]), len(ta[0]))
+	if len(fa[0]) != 1 || len(ta[0]) != 2 {
+		t.Fatalf("expected 1 field and 2 tag, got %d/%d", len(fa[0]), len(ta[0]))
 	}
 	if fa[0]["value"] != float64(88920.0) {
 		t.Errorf("expected value 488920.0, got %v", fa[0]["value"])
 	}
 	if ta[0]["cluster"] != "clusterA" {
 		t.Errorf("expected cluster tag 'clusterA', got %v", ta[0]["cluster"])
+	}
+	if ta[0]["degraded"] != "true" {
+		t.Errorf("expected degraded tag 'true', got %v", ta[0]["degraded"])
 	}
 }
 
@@ -58,7 +61,7 @@ func TestDecodeStat_String(t *testing.T) {
 		Devid: 1,
 		Value: "someval",
 	}
-	_, _, err := DecodeStat("clusterB", stat)
+	_, _, err := DecodeStat("clusterB", stat, false)
 	if err == nil {
 		t.Fatalf("expected error but got none")
 	}
@@ -80,15 +83,15 @@ func TestDecodeStat_ShortArrayOfMaps(t *testing.T) {
 			map[string]any{"op_rate": float64(131.6551361083984), "path": "SYSTEM (0x0)"},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat)
+	fa, ta, err := DecodeStat("clusterC", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fa) != 1 || len(ta) != 1 {
 		t.Fatalf("expected 1 set of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 4 {
-		t.Fatalf("expected 1 field and 4 tags, got %d/%d", len(fa[0]), len(ta[0]))
+	if len(fa[0]) != 1 || len(ta[0]) != 5 {
+		t.Fatalf("expected 1 field and 5 tags, got %d/%d", len(fa[0]), len(ta[0]))
 	}
 	if fa[0]["op_rate"] != float64(131.6551361083984) {
 		t.Errorf("unexpected op_rate value: %v", fa[0]["op_rate"])
@@ -98,6 +101,9 @@ func TestDecodeStat_ShortArrayOfMaps(t *testing.T) {
 	}
 	if ta[0]["cluster"] != "clusterC" || ta[0]["node"] != "3" {
 		t.Errorf("expected clusterC/2, got %v", ta[0])
+	}
+	if ta[0]["degraded"] != "false" {
+		t.Errorf("expected degraded tag 'false', got %v", ta[0]["degraded"])
 	}
 }
 
@@ -109,7 +115,7 @@ func TestDecodeStat_EmptyArray(t *testing.T) {
 		Devid: 0,
 		Value: []any{},
 	}
-	fa, ta, err := DecodeStat("clusterE", stat)
+	fa, ta, err := DecodeStat("clusterE", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -130,15 +136,15 @@ func TestDecodeStat_ArrayOfMaps(t *testing.T) {
 			map[string]any{"op_rate": float64(60.76391220092773), "path": "/ifs/"},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat)
+	fa, ta, err := DecodeStat("clusterC", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fa) != 2 || len(ta) != 2 {
 		t.Fatalf("expected 2 sets of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 4 || len(fa[1]) != 1 || len(ta[1]) != 4 {
-		t.Fatalf("expected 1 field and 4 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
+	if len(fa[0]) != 1 || len(ta[0]) != 5 || len(fa[1]) != 1 || len(ta[1]) != 5 {
+		t.Fatalf("expected 1 field and 5 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
 	}
 	if fa[0]["op_rate"] != float64(131.6551361083984) || fa[1]["op_rate"] != float64(60.76391220092773) {
 		t.Errorf("unexpected op_rate values: %v, %v", fa[0]["op_rate"], fa[1]["op_rate"])
@@ -181,7 +187,7 @@ func TestDecodeStat_ArrayOfMaps_with_Array(t *testing.T) {
 			},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat)
+	fa, ta, err := DecodeStat("clusterC", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -189,8 +195,8 @@ func TestDecodeStat_ArrayOfMaps_with_Array(t *testing.T) {
 		t.Fatalf("expected 6 sets of fields and tags, got %d/%d", len(fa), len(ta))
 	}
 	for i := range fa {
-		if len(fa[i]) != 4 || len(ta[i]) != 6 {
-			t.Fatalf("field set %v: expected 4 fields and 6 tags, got %d/%d", i, len(fa[i]), len(ta[i]))
+		if len(fa[i]) != 4 || len(ta[i]) != 7 {
+			t.Fatalf("field set %v: expected 4 fields and 7 tags, got %d/%d", i, len(fa[i]), len(ta[i]))
 		}
 		if ta[i]["cluster"] != "clusterC" || ta[i]["node"] != "1" {
 			t.Errorf("tag set %v: expected clusterC/1, got %v", i, ta[i])
@@ -222,15 +228,15 @@ func TestDecodeStat_SimpleMap(t *testing.T) {
 		Node:  intPtr(5),
 		Value: map[string]any{"hits": 5191200, "misses": 414440},
 	}
-	fa, ta, err := DecodeStat("clusterD", stat)
+	fa, ta, err := DecodeStat("clusterD", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fa) != 1 || len(ta) != 1 {
 		t.Fatalf("expected 1 set of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 2 || len(ta[0]) != 3 {
-		t.Fatalf("expected 2 fields and 3 tags, got %d/%d", len(fa[0]), len(ta[0]))
+	if len(fa[0]) != 2 || len(ta[0]) != 4 {
+		t.Fatalf("expected 2 fields and 4 tags, got %d/%d", len(fa[0]), len(ta[0]))
 	}
 	if fa[0]["hits"] != 5191200 {
 		t.Errorf("expected hits count 5191200', got %v", fa[0]["hits"])
@@ -257,15 +263,15 @@ func TestDecodeStat_Map_with_Array_of_Maps(t *testing.T) {
 			},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterG", stat)
+	fa, ta, err := DecodeStat("clusterG", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fa) != 2 || len(ta) != 2 {
 		t.Fatalf("expected 2 sets of fields and tags, got %d/%d", len(fa), len(ta))
 	}
-	if len(fa[0]) != 2 || len(ta[0]) != 2 || len(fa[1]) != 2 || len(ta[1]) != 2 {
-		t.Fatalf("expected 2 fields and 2 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
+	if len(fa[0]) != 2 || len(ta[0]) != 3 || len(fa[1]) != 2 || len(ta[1]) != 3 {
+		t.Fatalf("expected 2 fields and 3 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
 	}
 	if fa[0]["count"] != 42 || fa[1]["count"] != 42 {
 		t.Errorf("expected count 42, got %v, %v", fa[0]["count"], fa[1]["count"])
@@ -293,7 +299,7 @@ func TestDecodeStat_SMB_Elision(t *testing.T) {
 			map[string]any{"op_name": "write", "op_rate": 789.2},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterH", stat)
+	fa, ta, err := DecodeStat("clusterH", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -301,8 +307,8 @@ func TestDecodeStat_SMB_Elision(t *testing.T) {
 		t.Logf("expected 2 sets of fields and tags, got %d/%d", len(fa), len(ta))
 		t.Fatalf("tags: %#v", ta)
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 2 || len(fa[1]) != 1 || len(ta[1]) != 2 {
-		t.Fatalf("expected 1 field and 2 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
+	if len(fa[0]) != 1 || len(ta[0]) != 3 || len(fa[1]) != 1 || len(ta[1]) != 3 {
+		t.Fatalf("expected 1 field and 3 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
 	}
 	if fa[0]["op_rate"] != 3456.1 || fa[1]["op_rate"] != 789.2 {
 		t.Errorf("unexpected op_rate values: %v, %v", fa[0]["op_rate"], fa[1]["op_rate"])
@@ -327,7 +333,7 @@ func TestDecodeStat_IRP_Elision(t *testing.T) {
 			map[string]any{"op_name": "write", "op_rate": 789.2},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterI", stat)
+	fa, ta, err := DecodeStat("clusterI", stat, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -335,8 +341,8 @@ func TestDecodeStat_IRP_Elision(t *testing.T) {
 		t.Logf("expected 2 sets of fields and tags, got %d/%d", len(fa), len(ta))
 		t.Fatalf("tags: %#v", ta)
 	}
-	if len(fa[0]) != 1 || len(ta[0]) != 2 || len(fa[1]) != 1 || len(ta[1]) != 2 {
-		t.Fatalf("expected 1 field and 2 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
+	if len(fa[0]) != 1 || len(ta[0]) != 3 || len(fa[1]) != 1 || len(ta[1]) != 3 {
+		t.Fatalf("expected 1 field and 3 tags, got %d/%d, %d/%d", len(fa[0]), len(ta[0]), len(fa[1]), len(ta[1]))
 	}
 	if fa[0]["op_rate"] != 3456.1 || fa[1]["op_rate"] != 789.2 {
 		t.Errorf("unexpected op_rate values: %v, %v", fa[0]["op_rate"], fa[1]["op_rate"])
@@ -362,7 +368,7 @@ func TestDecodeStat_NilValue(t *testing.T) {
 		Devid: 0,
 		Value: nil,
 	}
-	DecodeStat("clusterE", stat)
+	DecodeStat("clusterE", stat, false)
 }
 
 // Test DecodeStat with unknown value type (should panic)
@@ -378,7 +384,7 @@ func TestDecodeStat_UnknownType(t *testing.T) {
 		Devid: 0,
 		Value: errors.New("bad type"),
 	}
-	DecodeStat("clusterF", stat)
+	DecodeStat("clusterF", stat, false)
 }
 
 // Test isInvalidStat for change_notify and read_directory_change

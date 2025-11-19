@@ -93,10 +93,10 @@ func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
-func DecodeStat(cluster string, stat StatResult) ([]ptFields, []ptTags, error) {
+func DecodeStat(cluster string, stat StatResult, degraded bool) ([]ptFields, []ptTags, error) {
 	var initialTags ptTags
-	clusterStatTags := ptTags{"cluster": cluster}
-	nodeStatTags := ptTags{"cluster": cluster}
+	clusterStatTags := ptTags{"cluster": cluster, "degraded": strconv.FormatBool(degraded)}
+	nodeStatTags := ptTags{"cluster": cluster, "degraded": strconv.FormatBool(degraded)}
 	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
 	var mta []ptTags   // metric tag array i.e., array of tag name to tag value mappings for each unique tag set for this metric
 
@@ -252,15 +252,32 @@ func isInvalidStat(tags *ptTags) bool {
 func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) error {
 	points := make([]Point, 0, len(stats)) // try to preallocate at least some space here
 	for _, stat := range stats {
-		if stat.ErrorCode != 0 {
+		degraded := false
+		switch stat.ErrorCode {
+		case StatErrorNone:
+			// all good
+		case StatErrorDegraded:
+			// degraded result
+			degraded = true
+			log.Debugf("Stat %v from cluster %v returned degraded result", stat.Key, c.ClusterName)
+		case StatErrorNotPresent, StatErrorNotImplemented, StatErrorNotConfigured, StatErrorNoData:
+			// skip stats that returned an error
 			if !c.badStats.Contains(stat.Key) {
 				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, c.ClusterName, stat.ErrorString)
 			}
 			// add it to the set of bad (unavailable) stats
 			c.badStats.Add(stat.Key)
 			continue
+		case StatErrorStale, StatErrorConnTimeout, StatErrorNoHistory, StatErrorSystem:
+			// just skip over this time
+			log.Warningf("Skipping over stat %v from cluster %v due to error %v", stat.Key, c.ClusterName, stat.ErrorString)
+			continue
+		default:
+			// unknown error
+			log.Errorf("Stat %v from cluster %v returned unknown error code %v (%v)", stat.Key, c.ClusterName, stat.ErrorCode, stat.ErrorString)
+			continue
 		}
-		fa, ta, err := DecodeStat(c.ClusterName, stat)
+		fa, ta, err := DecodeStat(c.ClusterName, stat, degraded)
 		if err != nil {
 			// TODO consider trying to recover/handle errors
 			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
