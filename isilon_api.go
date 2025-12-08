@@ -658,7 +658,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		if !isConnectionRefused(err) {
 			return nil, err
 		}
-		log.Errorf("Connection to %s refused, retrying in %d seconds", c.Hostname, retrySecs)
+		log.Errorf("Connection to cluster %s (host %s) refused, retrying in %d seconds", c.ClusterName, c.Hostname, retrySecs)
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
 		if retrySecs > maxTimeoutSecs {
