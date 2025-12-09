@@ -45,7 +45,8 @@ type globalConfig struct {
 	MinUpdateInvtl      int      `toml:"min_update_interval_override"`
 	MaxRetries          int      `toml:"max_retries"`
 	ActiveStatGroups    []string `toml:"active_stat_groups"`
-	PreserveCase        bool     `toml:"preserve_case"` // enable/disable normalization of Cluster Names
+	PreserveCase        bool     `toml:"preserve_case"`    // enable/disable normalization of Cluster Names
+	IncludeDegraded     bool     `toml:"include_degraded"` // include degraded status tag in metrics
 }
 
 // loggingConfig defines the logging settings in the config file
@@ -129,7 +130,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was the major logging rewrite in v0.31
-	case "0.31":
+	case "0.31", "0.32":
 		return
 	}
 	die("Config file version is not compatible with this collector version", slog.String("config file version", confVersion), slog.String("collector version", Version))

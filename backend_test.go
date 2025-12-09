@@ -28,7 +28,7 @@ func TestDecodeStat_Float64(t *testing.T) {
 		Devid: 0,
 		Value: float64(88920.0),
 	}
-	fa, ta, err := DecodeStat("clusterA", stat, true)
+	fa, ta, err := DecodeStat("clusterA", stat, true, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestDecodeStat_String(t *testing.T) {
 		Devid: 1,
 		Value: "someval",
 	}
-	_, _, err := DecodeStat("clusterB", stat, false)
+	_, _, err := DecodeStat("clusterB", stat, false, false)
 	if err == nil {
 		t.Fatalf("expected error but got none")
 	}
@@ -80,7 +80,7 @@ func TestDecodeStat_ShortArrayOfMaps(t *testing.T) {
 			map[string]any{"op_rate": float64(131.6551361083984), "path": "SYSTEM (0x0)"},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat, false)
+	fa, ta, err := DecodeStat("clusterC", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestDecodeStat_EmptyArray(t *testing.T) {
 		Devid: 0,
 		Value: []any{},
 	}
-	fa, ta, err := DecodeStat("clusterE", stat, false)
+	fa, ta, err := DecodeStat("clusterE", stat, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestDecodeStat_ArrayOfMaps(t *testing.T) {
 			map[string]any{"op_rate": float64(60.76391220092773), "path": "/ifs/"},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat, false)
+	fa, ta, err := DecodeStat("clusterC", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestDecodeStat_ArrayOfMaps_with_Array(t *testing.T) {
 			},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterC", stat, false)
+	fa, ta, err := DecodeStat("clusterC", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDecodeStat_SimpleMap(t *testing.T) {
 		Node:  intPtr(5),
 		Value: map[string]any{"hits": 5191200, "misses": 414440},
 	}
-	fa, ta, err := DecodeStat("clusterD", stat, false)
+	fa, ta, err := DecodeStat("clusterD", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestDecodeStat_Map_with_Array_of_Maps(t *testing.T) {
 			},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterG", stat, false)
+	fa, ta, err := DecodeStat("clusterG", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestDecodeStat_SMB_Elision(t *testing.T) {
 			map[string]any{"op_name": "write", "op_rate": 789.2},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterH", stat, false)
+	fa, ta, err := DecodeStat("clusterH", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestDecodeStat_IRP_Elision(t *testing.T) {
 			map[string]any{"op_name": "write", "op_rate": 789.2},
 		},
 	}
-	fa, ta, err := DecodeStat("clusterI", stat, false)
+	fa, ta, err := DecodeStat("clusterI", stat, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestDecodeStat_NilValue(t *testing.T) {
 		Devid: 0,
 		Value: nil,
 	}
-	DecodeStat("clusterE", stat, false)
+	DecodeStat("clusterE", stat, false, false)
 }
 
 // Test DecodeStat with unknown value type (should panic)
@@ -381,7 +381,7 @@ func TestDecodeStat_UnknownType(t *testing.T) {
 		Devid: 0,
 		Value: errors.New("bad type"),
 	}
-	DecodeStat("clusterF", stat, false)
+	DecodeStat("clusterF", stat, true, false)
 }
 
 // Test isInvalidStat for change_notify and read_directory_change

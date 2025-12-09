@@ -94,10 +94,14 @@ func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
-func DecodeStat(cluster string, stat StatResult, degraded bool) ([]ptFields, []ptTags, error) {
+func DecodeStat(cluster string, stat StatResult, include_degraded bool, degraded bool) ([]ptFields, []ptTags, error) {
 	var initialTags ptTags
-	clusterStatTags := ptTags{"cluster": cluster, "degraded": strconv.FormatBool(degraded)}
-	nodeStatTags := ptTags{"cluster": cluster, "degraded": strconv.FormatBool(degraded)}
+	clusterStatTags := ptTags{"cluster": cluster}
+	nodeStatTags := ptTags{"cluster": cluster}
+	if include_degraded {
+		clusterStatTags["degraded"] = strconv.FormatBool(degraded)
+		nodeStatTags["degraded"] = strconv.FormatBool(degraded)
+	}
 	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
 	var mta []ptTags   // metric tag array i.e., array of tag name to tag value mappings for each unique tag set for this metric
 
@@ -278,7 +282,7 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 			log.Error("Stat returned unknown error code - skipping", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.Int("error_code", stat.ErrorCode), slog.String("error", stat.ErrorString))
 			continue
 		}
-		fa, ta, err := DecodeStat(c.ClusterName, stat, degraded)
+		fa, ta, err := DecodeStat(c.ClusterName, stat, gc.IncludeDegraded, degraded)
 		if err != nil {
 			// TODO consider trying to recover/handle errors
 			die(fmt.Sprintf("Failed to decode stat %+v: %s\n", stat, err))

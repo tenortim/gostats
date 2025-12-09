@@ -36,6 +36,9 @@ min_update_interval_override = 5
 # preserve case of cluster names to lowercase, defaults to false.
 # preserve_case = true
 
+# include degraded status tag in metrics, defaults to false.
+# include_degraded = true
+
 # Specifies the active list of stat groups to query, each stat group name
 # specified here should have a corresponding section in the config file.
 active_stat_groups = [
