@@ -1,6 +1,17 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.31 Tue Dec 9 12:28:46 2025 -0800
+
+> [!IMPORTANT]
+> The following changes mean that a minimum version of Golang 1.24 is required to build.
+>
+> The config rewrite is a breaking change which will require
+> a manual update of the configuration file post-upgrade.
+
+- Switch to log/slog for logging
+  - Numerous reasons including log/slog being part of the standard library, supporting structured logging and easily allowing multiple log levels for diferent components.
+
 ## 0.30 Wed Nov 19 11:23:36 2025 -0800
 
 ### Bug Fixes
