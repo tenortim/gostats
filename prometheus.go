@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sort"
@@ -171,9 +172,12 @@ func startPromSdListener(conf tomlConfig) error {
 	if err != nil {
 		return fmt.Errorf("error creating listener for Prometheus HTTP SD: %w", err)
 	}
-	log.Infof("Starting Prometheus HTTP SD listener on %s", addr)
+	log.Info("Starting Prometheus HTTP SD listener", slog.String("address", addr))
 	// XXX improve error handling here?
-	go func() { log.Error(http.Serve(listener, mux)) }()
+	go func() {
+		err := http.Serve(listener, mux)
+		log.Error("HTTP SD listener exited with error", slog.String("error", err.Error()))
+	}()
 	return nil
 }
 
@@ -216,8 +220,7 @@ func (p *PrometheusClient) Connect() error {
 			err = p.server.Serve(listener)
 		}
 		if err != nil && err != http.ErrServerClosed {
-			log.Errorf("error creating prometheus metric endpoint, err: %s\n",
-				err.Error())
+			log.Error("error creating prometheus metric endpoint", slog.String("error", err.Error()))
 		}
 	}()
 
@@ -339,9 +342,8 @@ func (s *PrometheusSink) Collect(ch chan<- prometheus.Metric) {
 
 			metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, sample.Value, labels...)
 			if err != nil {
-				log.Errorf("error creating prometheus metric, "+
-					"key: %s, labels: %v,\nerr: %s\n",
-					name, labels, err.Error())
+				log.Error("error creating prometheus metric",
+					slog.String("key", name), "labels", labels, slog.String("error", err.Error()))
 			}
 
 			metric = prometheus.NewMetricWithTimestamp(sample.Timestamp, metric)
@@ -406,10 +408,10 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 	for _, point := range points {
 		promstat, ok := s.metricMap[point.name]
 		if !ok {
-			log.Fatalf("unable to find metric map entry for point %+v", point)
+			die("unable to find metric map entry for point", slog.String("point", point.name))
 		}
 		if !promstat.valid {
-			log.Debugf("skipping invalid stat %v", point.name)
+			log.Debug("skipping invalid stat", slog.String("stat", point.name))
 			continue
 		}
 		// expire the stats based off their update interval
@@ -449,17 +451,16 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 				case int64:
 					value = float64(v)
 				default:
-					log.Errorf("cannot convert field value %v for stat %v to float64", v, point.name)
-					log.Errorf("point = %+v, field = %+v", point, k)
+					log.Error("cannot convert field value to float64", slog.String("point", point.name), "value", v)
+					log.Error("point dump", "point", point, "field", k)
 					panic("unexpected unconvertable value")
 				}
-				log.Debugf("setting metric %v to %v", name, value)
+				log.Debug("assigning metric", slog.String("metric", name), slog.Float64("value", value))
 				for tag, value := range point.tags[i] {
-					log.Debugf("setting label %v to %v", tag, value)
+					log.Debug("assigning label", slog.String("label", tag), slog.String("value", value))
 					labels[tag] = value
 				}
 
-				log.Debugf("setting metric %v to %v", name, value)
 				sample := &Sample{
 					Labels:     labels,
 					Value:      value,

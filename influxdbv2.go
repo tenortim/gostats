@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -47,7 +48,7 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	// Create goroutine for reading and logging errors
 	go func() {
 		for err := range errorsCh {
-			log.Errorf("InfluxDB async write error for cluster %s: %s\n", cluster, err.Error())
+			log.Error("InfluxDB async write failed", slog.String("cluster", cluster), slog.String("error", err.Error()))
 		}
 	}()
 	s.badStats = mapset.NewSet[string]()

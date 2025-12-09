@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -188,7 +189,7 @@ type SummaryStatsClientItem struct {
 func (c *Cluster) initialize() error {
 	// already initialized?
 	if c.client != nil {
-		log.Warningf("initialize called for cluster %s when it was already initialized, skipping", c.Hostname)
+		log.Warn("initialize called for cluster when it was already initialized, skipping", slog.String("cluster", c.Hostname))
 		return nil
 	}
 	if c.Username == "" {
@@ -262,7 +263,7 @@ func (c *Cluster) Authenticate() error {
 		if err == nil {
 			break
 		}
-		log.Warningf("Authentication request failed: %s - retrying in %d seconds", err, retrySecs)
+		log.Warn("Authentication request failed", slog.String("error", err.Error()), slog.Int("retry_secs", retrySecs))
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
 		if retrySecs > maxTimeoutSecs {
@@ -292,7 +293,7 @@ func (c *Cluster) Authenticate() error {
 		timeout = int(ta.(float64))
 	} else {
 		// This shouldn't happen, but just set it to a sane default
-		log.Warning("authentication API did not return timeout value, using default")
+		log.Warn("authentication API did not return timeout value, using default")
 		timeout = 14400
 	}
 	if timeout > 60 {
@@ -304,12 +305,12 @@ func (c *Cluster) Authenticate() error {
 	// Dig out CSRF token so we can set the appropriate header
 	for _, cookie := range c.client.Jar.Cookies(u) {
 		if cookie.Name == "isicsrf" {
-			log.Debugf("Found csrf cookie %v\n", cookie)
+			log.Debug("Found csrf cookie", "cookie", cookie)
 			c.csrfToken = cookie.Value
 		}
 	}
 	if c.csrfToken == "" {
-		log.Debugf("No CSRF token found for cluster %s, assuming old-style session auth", c.Hostname)
+		log.Debug("No CSRF token found, assuming old-style session auth", slog.String("cluster", c.Hostname))
 	}
 
 	return nil
@@ -369,16 +370,16 @@ func UnmarshalSummaryStatsProtocol(data []byte) (SummaryStatsProtocol, error) {
 // GetSummaryProtocolStats queries the summary stats protocol endpoint and returns a SummaryStatsProtocol struct or an error
 func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) {
 	path := summaryStatsPath + "protocol?degraded=true"
-	log.Infof("fetching protocol summary stats from cluster %s", c)
+	log.Info("fetching protocol summary stats", slog.String("cluster", c.String()))
 	resp, err := c.restGet(path)
 	if err != nil {
-		log.Errorf("cluster %s failed to get protocol summary stats: %v\n", c, err)
+		log.Error("failed to get protocol summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
 		// TODO investigate handling partial errors rather than totally failing?
 		return nil, err
 	}
 	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 	// when using session cookies)
-	log.Debugf("cluster %s got response %s", c, resp)
+	log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
 	r, err := UnmarshalSummaryStatsProtocol(resp)
 	if err != nil {
 		errmsg := fmt.Errorf("cluster %s unable to parse protocol summary stats response %q - error %s", c, resp, err)
@@ -388,10 +389,10 @@ func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) 
 		// Theoretically, the Errors array can contain multiple entries
 		// I haven't ever seen that, so we just take the first entry here
 		apiError := r.Errors[0]
-		errmsg := fmt.Errorf("protocol summary stats endpoint for cluster %s returned error code %s, message %s", c.ClusterName, apiError.Code, apiError.Message)
+		errmsg := fmt.Errorf("protocol summary stats endpoint for cluster %s returned error code %s, message %s", c.String(), apiError.Code, apiError.Message)
 		return nil, errmsg
 	}
-	log.Debugf("cluster %s successfully decoded %d protocol summary stats", c, len(r.Protocol))
+	log.Debug("successfully decoded protocol summary stats", slog.String("cluster", c.String()), slog.Int("count", len(r.Protocol)))
 	return r.Protocol, nil
 }
 
@@ -405,16 +406,16 @@ func UnMarshalSummaryStatsClient(data []byte) (SummaryStatsClient, error) {
 // GetSummaryClientStats queries the summary stats client endpoint and returns a SummaryStatsClient struct or an error
 func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
 	path := summaryStatsPath + "client?degraded=true"
-	log.Infof("fetching client summary stats from cluster %s", c)
+	log.Info("fetching client summary stats", slog.String("cluster", c.String()))
 	resp, err := c.restGet(path)
 	if err != nil {
-		log.Errorf("cluster %s failed to get client summary stats: %v\n", c, err)
+		log.Error("failed to get client summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
 		// TODO investigate handling partial errors rather than totally failing?
 		return nil, err
 	}
 	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 	// when using session cookies)
-	log.Debugf("cluster %s got response %s", c, resp)
+	log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
 	r, err := UnMarshalSummaryStatsClient(resp)
 	if err != nil {
 		errmsg := fmt.Errorf("cluster %s unable to parse client summary stats response %q - error %s", c, resp, err)
@@ -424,10 +425,10 @@ func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
 		// Theoretically, the Errors array can contain multiple entries
 		// I haven't ever seen that, so we just take the first entry here
 		apiError := r.Errors[0]
-		errmsg := fmt.Errorf("client summary stats endpoint for cluster %s returned error code %s, message %s", c.ClusterName, apiError.Code, apiError.Message)
+		errmsg := fmt.Errorf("client summary stats endpoint for cluster %s returned error code %s, message %s", c.String(), apiError.Code, apiError.Message)
 		return nil, errmsg
 	}
-	log.Debugf("cluster %s successfully decoded %d client summary stats", c, len(r.Client))
+	log.Debug("successfully decoded client summary stats", slog.String("cluster", c.String()), slog.Int("count", len(r.Client)))
 	return r.Client, nil
 }
 
@@ -442,7 +443,7 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	la := 0
 	// Need special case for short last get
 	ls := len(stats)
-	log.Infof("fetching %d stats from cluster %s", ls, c)
+	log.Info("fetching stats", slog.String("cluster", c.String()), slog.Int("count", ls))
 	// max minus (initial string + slop)
 	maxlen := MaxAPIPathLen - (len(basePath) + 100)
 	buffer.WriteString(basePath)
@@ -455,22 +456,22 @@ func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 				continue
 			}
 		}
-		log.Debugf("cluster %s fetching %s", c, buffer.String())
+		log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
 		resp, err := c.restGet(buffer.String())
 		if err != nil {
-			log.Errorf("cluster %s failed to get stats: %v\n", c, err)
+			log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
 			// TODO investigate handling partial errors rather than totally failing?
 			return nil, err
 		}
 		// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 		// when using session cookies)
-		log.Debugf("cluster %s got response %s", c, resp)
+		log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
 		r, err := parseStatResult(resp)
 		if err != nil {
-			log.Errorf("cluster %s unable to parse response %q - error %s\n", c, resp, err)
+			log.Error("unable to parse response", slog.String("cluster", c.String()), slog.String("response", string(resp)), slog.String("error", err.Error()))
 			return nil, err
 		}
-		log.Debugf("cluster %s parsed stats results = %v", c, r)
+		log.Log(ctx, LevelTrace, "parsed stats results", slog.String("cluster", c.String()), "results", r)
 		results = append(results, r...)
 		buffer.Reset()
 	}
@@ -510,14 +511,14 @@ func (c *Cluster) fetchStatDetails(sg map[string]statGroup) map[string]statDetai
 			path := statInfoPath + stat
 			resp, err := c.restGet(path)
 			if err != nil {
-				log.Warningf("cluster %s failed to retrieve information for stat %s - %s - removing", c, stat, err)
+				log.Warn("failed to retrieve information for stat - removing", slog.String("cluster", c.String()), slog.String("stat", stat), slog.String("error", err.Error()))
 				statInfo[stat] = badStat
 				continue
 			}
 			// parse stat info
 			detail, err := parseStatInfo(resp)
 			if err != nil {
-				log.Warningf("cluster %s failed to parse detailed information for stat %s - %s - removing", c, stat, err)
+				log.Warn("failed to parse detailed information for stat - removing", slog.String("cluster", c.String()), slog.String("stat", stat), slog.String("error", err.Error()))
 				statInfo[stat] = badStat
 				continue
 			}
@@ -611,7 +612,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	var resp *http.Response
 
 	if c.AuthType == authtypeSession && time.Now().After(c.reauthTime) {
-		log.Infof("re-authenticating to cluster %s based on timer", c)
+		log.Info("re-authenticating to cluster based on timer", slog.String("cluster", c.String()))
 		if err = c.Authenticate(); err != nil {
 			return nil, err
 		}
@@ -640,7 +641,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 				if c.AuthType == authtypeBasic {
 					return nil, fmt.Errorf("basic authentication for cluster %s failed - check username and password", c)
 				}
-				log.Noticef("Session-based authentication to cluster %s failed, attempting to re-authenticate", c)
+				log.Log(ctx, LevelNotice, "Session-based authentication failed, attempting to re-authenticate", slog.String("cluster", c.String()))
 				if err = c.Authenticate(); err != nil {
 					return nil, err
 				}
@@ -658,7 +659,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 		if !isConnectionRefused(err) {
 			return nil, err
 		}
-		log.Errorf("Connection to cluster %s (host %s) refused, retrying in %d seconds", c.ClusterName, c.Hostname, retrySecs)
+		log.Error("Connection to refused, retrying", slog.String("cluster", c.String()), slog.String("hostname", c.Hostname), slog.Int("retry_secs", retrySecs))
 		time.Sleep(time.Duration(retrySecs) * time.Second)
 		retrySecs *= 2
 		if retrySecs > maxTimeoutSecs {

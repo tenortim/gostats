@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"strconv"
 	"time"
@@ -129,17 +130,17 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 	var mfa []ptFields // metric field array i.e., array of field to value mappings for each unique tag set for this metric
 	var mta []ptTags   // metric tag array i.e., array of tag name to tag value mappings for each unique tag set for this metric
 
-	log.Debugf("decodeValue: stat=%s, field=%s, value=%#v, depth=%d", statname, fieldname, v, depth)
+	log.Debug("decodeValue entry", slog.String("stat", statname), slog.String("field", fieldname), "value", v, slog.Int("depth", depth))
 	switch val := v.(type) {
 	case float64, int64, int:
-		log.Debugf("decoding primitive value: %T", val)
+		log.Debug(fmt.Sprintf("decoding primitive value: %T", val))
 		if fieldname == "" {
 			// We should never get here, as we should have handled this in the parent call
-			log.Panicf("unexpected primitive value with no name in stat %s", statname)
+			die("unexpected primitive value with no name", slog.String("stat", statname))
 		}
 		fields := make(ptFields)
 		fields[fieldname] = val
-		log.Debugf("decoded fields: %#v", fields)
+		log.Debug(fmt.Sprintf("decoded fields: %#v", fields))
 		mfa = append(mfa, fields)
 		mta = append(mta, baseTags)
 	case string:
@@ -149,24 +150,24 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 		}
 		tags := maps.Clone(baseTags)
 		tags[fieldname] = val
-		log.Debugf("decoding tag value: %s=%s", fieldname, val)
+		log.Debug("decoding tag value", slog.String("field", fieldname), "value", val)
 		mta = append(mta, tags)
 	case []any:
 		// handle stats that return an array of "values" with distinct tag sets e.g., protostats
-		log.Debugf("decoding array of %d values", len(val))
+		log.Debug("decoding array of values", slog.Int("length", len(val)))
 		for _, vl := range val {
 			nfa, nta, err := decodeValue(statname, "", vl, baseTags, depth+1)
 			if err != nil {
-				log.Errorf("Failed to decode stat %s: %s", statname, err)
+				log.Error("Failed to decode stat", slog.String("stat", statname), slog.String("error", err.Error()))
 				return nil, nil, err
 			}
-			log.Debugf("decoded array element to %d fields and %d tags", len(nfa), len(nta))
+			log.Debug("decoded array element", slog.Int("field count", len(nfa)), slog.Int("tag count", len(nta)))
 			mfa = append(mfa, nfa...)
 			mta = append(mta, nta...)
 		}
 		return mfa, mta, nil
 	case map[string]any:
-		log.Debugf("decoding map with %d keys", len(val))
+		log.Debug("decoding map", slog.Int("size", len(val)))
 		fields := make(ptFields)
 		tags := make(ptTags)
 		maps.Copy(tags, baseTags)
@@ -175,12 +176,12 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 		// is this a simple map with no sub-arrays?
 		simple := true
 		for km, vm := range val {
-			log.Debugf("decoding map key %s", km)
+			log.Debug("decoding map key", slog.String("key", km))
 			_, isarray := vm.([]any)
 			nfa, nta, err := decodeValue(statname, km, vm, baseTags, depth+1)
-			log.Debugf("decoded map key %s to fields %#v and tags %#v", km, nfa, nta)
+			log.Debug("decoded map key", slog.String("key", km), "fields", nfa, "tags", nta)
 			if err != nil {
-				log.Errorf("Failed to decode stat %s: %s", statname, err)
+				log.Error("Failed to decode stat", slog.String("stat", statname), slog.String("error", err.Error()))
 				return nil, nil, err
 			}
 			if len(nfa) == 0 {
@@ -196,21 +197,21 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 				subtags = append(subtags, nta...)
 			} else {
 				// This should not happen
-				log.Panicf("unexpected multiple field values in map key %s of stat %s", km, statname)
+				die("unexpected multiple field values in map", slog.String("stat", statname), slog.String("key", km))
 			}
 		}
 		if simple {
 			// We had a simple map with no sub-arrays, so just return the single set of fields and tags
-			log.Debugf("decoded simple map to fields: %#v and tags: %#v", fields, tags)
+			log.Debug("decoded simple map", "fields", fields, "tags", tags)
 			if isInvalidStat(&tags) {
-				log.Debugf("Cluster %s, dropping broken change_notify stat", baseTags["cluster"])
+				log.Debug("dropping broken change_notify stat", slog.String("cluster", baseTags["cluster"]))
 			} else {
 				mfa = append(mfa, fields)
 				mta = append(mta, tags)
 			}
 		} else {
 			// We had a sub-array, so we need to combine the base fields and tags with each of the sub ones
-			log.Debugf("decoded complex map to %d sub-fields and %d sub-tags", len(subfields), len(subtags))
+			log.Debug("decoded complex map", slog.Int("field count", len(subfields)), slog.Int("tag count", len(subtags)))
 			for i := range subfields {
 				var f ptFields
 				var t ptTags
@@ -220,7 +221,7 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 				maps.Copy(f, subfields[i])
 				maps.Copy(t, subtags[i])
 				if isInvalidStat(&t) {
-					log.Debugf("Cluster %s, dropping broken change_notify stat", baseTags["cluster"])
+					log.Debug("dropping broken change_notify stat", slog.String("cluster", baseTags["cluster"]))
 				} else {
 					mfa = append(mfa, f)
 					mta = append(mta, t)
@@ -229,10 +230,10 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 		}
 	default:
 		// TODO consider returning an error rather than panicing
-		log.Errorf("Unable to decode stat %s", statname)
-		log.Panicf("Failed to handle unwrap of value type %T in stat %s\n", val, statname)
+		log.Error("Unable to decode stat", slog.String("stat", statname))
+		panic(fmt.Sprintf("Failed to handle unwrap of value type %T in stat %s\n", val, statname))
 	}
-	log.Debugf("decodeValue returning %d sets of fields and %d sets of tags", len(mfa), len(mta))
+	log.Debug("decodeValue returning", slog.Int("field count", len(mfa)), slog.Int("tag count", len(mta)))
 	return mfa, mta, nil
 }
 
@@ -259,28 +260,28 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 		case StatErrorDegraded:
 			// degraded result
 			degraded = true
-			log.Debugf("Stat %v from cluster %v returned degraded result", stat.Key, c.ClusterName)
+			log.Debug("handling degraded result", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key))
 		case StatErrorNotPresent, StatErrorNotImplemented, StatErrorNotConfigured, StatErrorNoData:
 			// skip stats that returned an error
 			if !c.badStats.Contains(stat.Key) {
-				log.Warningf("Unable to retrieve stat %v from cluster %v, error %v", stat.Key, c.ClusterName, stat.ErrorString)
+				log.Warn("Failed to retrieve stat", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.String("error", stat.ErrorString))
 			}
 			// add it to the set of bad (unavailable) stats
 			c.badStats.Add(stat.Key)
 			continue
 		case StatErrorStale, StatErrorConnTimeout, StatErrorNoHistory, StatErrorSystem:
 			// just skip over this time
-			log.Warningf("Skipping over stat %v from cluster %v due to error %v", stat.Key, c.ClusterName, stat.ErrorString)
+			log.Warn("Skipping stat", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.String("error", stat.ErrorString))
 			continue
 		default:
 			// unknown error
-			log.Errorf("Stat %v from cluster %v returned unknown error code %v (%v)", stat.Key, c.ClusterName, stat.ErrorCode, stat.ErrorString)
+			log.Error("Stat returned unknown error code - skipping", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.Int("error_code", stat.ErrorCode), slog.String("error", stat.ErrorString))
 			continue
 		}
 		fa, ta, err := DecodeStat(c.ClusterName, stat, degraded)
 		if err != nil {
 			// TODO consider trying to recover/handle errors
-			log.Panicf("Failed to decode stat %+v: %s\n", stat, err)
+			die(fmt.Sprintf("Failed to decode stat %+v: %s\n", stat, err))
 		}
 		point := Point{name: stat.Key, time: stat.UnixTime, fields: fa, tags: ta}
 		points = append(points, point)
@@ -294,14 +295,14 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 		if err == nil {
 			break
 		}
-		log.Errorf("failed writing to back end database: %v - retry #%d in %v", err, i, retryTime)
+		log.Error("failed writing to back end database", slog.String("error", err.Error()), slog.Int("retry count", i), slog.Duration("retry time", retryTime))
 		time.Sleep(retryTime)
 		if retryTime < maxRetryTime {
 			retryTime *= 2
 		}
 	}
 	if err != nil {
-		log.Errorf("ProcessorMaxRetries exceeded, failed to write stats to database: %s", err)
+		log.Error("ProcessorMaxRetries exceeded, failed to write stats to database", slog.String("error", err.Error()))
 		return err
 	}
 	return nil

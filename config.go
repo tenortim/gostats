@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"strings"
@@ -25,6 +26,7 @@ const defaultPreserveCase = false
 // tomlConfig defines the top-level structure of the config file
 type tomlConfig struct {
 	Global       globalConfig
+	Logging      loggingConfig     `toml:"logging"`
 	InfluxDB     influxDBConfig    `toml:"influxdb"`
 	InfluxDBv2   influxDBv2Config  `toml:"influxdbv2"`
 	Prometheus   prometheusConfig  `toml:"prometheus"`
@@ -37,8 +39,6 @@ type tomlConfig struct {
 // globalConfig defines the global settings in the config file
 type globalConfig struct {
 	Version             string   `toml:"version"`
-	LogFile             *string  `toml:"logfile"`
-	LogToStdout         bool     `toml:"log_to_stdout"`
 	Processor           string   `toml:"stats_processor"`
 	ProcessorMaxRetries int      `toml:"stats_processor_max_retries"`
 	ProcessorRetryIntvl int      `toml:"stats_processor_retry_interval"`
@@ -46,6 +46,14 @@ type globalConfig struct {
 	MaxRetries          int      `toml:"max_retries"`
 	ActiveStatGroups    []string `toml:"active_stat_groups"`
 	PreserveCase        bool     `toml:"preserve_case"` // enable/disable normalization of Cluster Names
+}
+
+// loggingConfig defines the logging settings in the config file
+type loggingConfig struct {
+	LogFile       *string `toml:"logfile"`
+	LogFileFormat *string `toml:"log_file_format"`
+	LogLevel      *string `toml:"log_level"`
+	LogToStdout   bool    `toml:"log_to_stdout"`
 }
 
 // influxDBConfig defines the InfluxDB settings in the config file
@@ -111,6 +119,22 @@ type statGroupConf struct {
 	Stats       []string
 }
 
+// validateConfigVersion checks the version of the config file to ensure that it is
+// compatible with this version of the collector
+// If not, it is a fatal error
+func validateConfigVersion(confVersion string) {
+	if confVersion == "" {
+		die("The collector requires a versioned config file (see the example config)")
+	}
+	v := strings.TrimLeft(confVersion, "vV")
+	switch v {
+	// last breaking change was the major logging rewrite in v0.31
+	case "0.31":
+		return
+	}
+	die("Config file version is not compatible with this collector version", slog.String("config file version", confVersion), slog.String("collector version", Version))
+}
+
 // mustReadConfig reads the config file or exits the program is this fails
 func mustReadConfig(configFileName string) tomlConfig {
 	var conf tomlConfig
@@ -125,6 +149,9 @@ func mustReadConfig(configFileName string) tomlConfig {
 		fmt.Fprintf(os.Stderr, "%s: failed to read config file %s\nError: %v\nExiting\n", os.Args[0], configFileName, err.Error())
 		os.Exit(1)
 	}
+	// Validate config version
+	validateConfigVersion(conf.Global.Version)
+
 	// If retries is 0 or negative, make it effectively infinite
 	if conf.Global.MaxRetries <= 0 {
 		conf.Global.MaxRetries = math.MaxInt

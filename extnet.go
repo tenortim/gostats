@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 )
@@ -41,7 +42,7 @@ func ListExternalIPs() ([]net.IP, error) {
 	}
 	for _, i := range ifaces {
 		if !IsExternalInterface(i.Name) {
-			log.Debugf("skipping internal interface %s", i.Name)
+			log.Debug("skipping internal interface", slog.String("interface", i.Name))
 			continue
 		}
 		addrs, err := i.Addrs()

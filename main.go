@@ -2,19 +2,19 @@ package main
 
 import (
 	"container/heap"
+	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	logging "github.com/op/go-logging"
 )
 
 // Version is the released program version
-const Version = "0.30"
+const Version = "0.31"
 const userAgent = "gostats/" + Version
 
 const (
@@ -42,100 +42,24 @@ type statGroup struct {
 	stats []string
 }
 
-var log = logging.MustGetLogger("gostats")
-
-type loglevel logging.Level
-
-var logLevel = loglevel(logging.NOTICE)
+var ctx = context.Background()
 
 // debugging flags
 var checkStatReturn = flag.Bool("check-stat-return",
 	false,
 	"Verify that the api returns results for every stat requested")
 
-func (l *loglevel) String() string {
-	level := logging.Level(*l)
-	return level.String()
-}
-
-func (l *loglevel) Set(value string) error {
-	level, err := logging.LogLevel(value)
-	if err != nil {
-		return err
-	}
-	*l = loglevel(level)
-	return nil
-}
-
-func init() {
-	// tie log-level variable into flag parsing
-	flag.Var(&logLevel,
-		"loglevel",
-		"default log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG]")
-}
-
-func backendFromFile(f *os.File) logging.Backend {
-	backend := logging.NewLogBackend(f, "", 0)
-	var format = logging.MustStringFormatter(
-		`%{time:2006-01-02T15:04:05Z07:00} %{shortfile} %{level} %{message}`,
-	)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
-	backendLeveled := logging.AddModuleLevel(backendFormatter)
-	backendLeveled.SetLevel(logging.Level(logLevel), "")
-	return backendLeveled
-}
-
-func setupLogging(gc globalConfig, logFileName string) {
-	// Up to two backends (one file, one stdout)
-	backends := make([]logging.Backend, 0, 2)
-	// default is to not log to file
-	logfile := ""
-	// is it set in the config file?
-	if gc.LogFile != nil {
-		logfile = *gc.LogFile
-	}
-	// Finally, if it was set on the command line, override the setting
-	if logFileName != "" {
-		logfile = logFileName
-	}
-	if logfile != "" {
-		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "gostats: unable to open log file %s for output - %s", logfile, err)
-			os.Exit(2)
-		}
-		backends = append(backends, backendFromFile(f))
-	}
-	if gc.LogToStdout {
-		backends = append(backends, backendFromFile(os.Stdout))
-	}
-	if len(backends) == 0 {
-		fmt.Fprintf(os.Stderr, "gostats: no logging defined, unable to continue\nPlease configure logging in the config file and/or via the command line\n")
-		os.Exit(3)
-	}
-	logging.SetBackend(backends...)
-}
-
-// validateConfigVersion checks the version of the config file to ensure that it is
-// compatible with this version of the collector
-// If not, it is a fatal error
-func validateConfigVersion(confVersion string) {
-	if confVersion == "" {
-		log.Fatalf("The collector requires a versioned config file (see the example config)")
-	}
-	v := strings.TrimLeft(confVersion, "vV")
-	switch v {
-	// last breaking change was addition of summary stats in v0.25
-	case "0.25", "0.26", "0.27", "0.28", "0.29", "0.30":
-		return
-	}
-	log.Fatalf("Config file version %q is not compatible with this collector version %s", confVersion, Version)
+func die(msg string, args ...any) {
+	log.Log(ctx, LevelFatal, msg, args...)
+	os.Exit(1)
 }
 
 func main() {
+	setupEarlyLogging()
 	logFileName := flag.String("logfile", "", "pathname of log file")
 	configFileName := flag.String("config-file", "idic.toml", "pathname of config file")
 	versionFlag := flag.Bool("version", false, "Print application version")
+	logLevel := flag.String("loglevel", "", "log level [CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG|TRACE]")
 	// parse command line
 	flag.Parse()
 
@@ -149,16 +73,14 @@ func main() {
 	conf := mustReadConfig(*configFileName)
 
 	// set up logging
-	setupLogging(conf.Global, *logFileName)
+	setupLogging(conf.Logging, *logLevel, *logFileName)
 
 	// announce ourselves
-	log.Noticef("Starting gostats version %s", Version)
-
-	validateConfigVersion(conf.Global.Version)
+	log.Log(ctx, LevelNotice, "Starting gostats", slog.String("version", Version))
 
 	// Ensure the config contains at least one stat to poll
 	if len(conf.StatGroups) == 0 {
-		log.Errorf("No stat groups found in config file. Unable to start collection")
+		log.Error("No stat groups found in config file. Unable to start collection")
 		return
 	}
 
@@ -176,19 +98,19 @@ func main() {
 	var wg sync.WaitGroup
 	for ci, cl := range conf.Clusters {
 		if cl.Disabled {
-			log.Infof("skipping disabled cluster %q", cl.Hostname)
+			log.Info("skipping disabled cluster", slog.String("cluster", cl.Hostname))
 			continue
 		}
 		wg.Add(1)
 		go func(ci int, cl clusterConf) {
-			log.Infof("spawning collection loop for cluster %s", cl.Hostname)
+			log.Info("spawning collection loop", slog.String("cluster", cl.Hostname))
 			defer wg.Done()
 			statsloop(&conf, ci, sg)
-			log.Infof("collection loop for cluster %s ended", cl.Hostname)
+			log.Info("collection loop ended", slog.String("cluster", cl.Hostname))
 		}(ci, cl)
 	}
 	wg.Wait()
-	log.Notice("All collectors complete - exiting")
+	log.Log(ctx, LevelNotice, "All collectors complete - exiting")
 }
 
 // parseStatConfig parses the stat-collection TOML config
@@ -199,18 +121,18 @@ func parseStatConfig(conf tomlConfig) map[string]statGroup {
 	allStatGroups := make(map[string]statGroup)
 	statGroups := make(map[string]statGroup)
 	for _, sg := range conf.StatGroups {
-		log.Debugf("Parsing stat group detail for group %q", sg.Name)
+		log.Debug("Parsing stat group detail", slog.String("group", sg.Name))
 		sgr := parseUpdateIntvl(sg.UpdateIntvl, conf.Global.MinUpdateInvtl)
 		sgd := statGroup{sgr, sg.Stats}
 		allStatGroups[sg.Name] = sgd
 	}
 
 	// validate active groups
-	log.Debugf("Validating active stat group names")
+	log.Debug("Validating active stat group names")
 	asg := []string{}
 	for _, group := range conf.Global.ActiveStatGroups {
 		if _, ok := allStatGroups[group]; !ok {
-			log.Warningf("Active stat group %q not found - removing\n", group)
+			log.Warn("Active stat group not found - removing\n", slog.String("group", group))
 			continue
 		}
 		asg = append(asg, group)
@@ -219,12 +141,12 @@ func parseStatConfig(conf tomlConfig) map[string]statGroup {
 	// ensure that each stat only appears in one (active) group
 	// we could check to see if the multipliers/times match, but it's simpler
 	// to just treat this as an error since there's no reason for the duplication
-	log.Debugf("Checking for duplicate stat names")
+	log.Debug("Checking for duplicate stat names")
 	allstats := make(map[string]bool)
 	for _, sg := range asg {
 		for _, stat := range allStatGroups[sg].stats {
 			if allstats[stat] {
-				log.Fatalf("stat %q found in multiple stat groups. Please correct and retry.", stat)
+				die("stat found in multiple stat groups. Please correct and retry.", slog.String("stat", stat))
 			}
 			allstats[stat] = true
 		}
@@ -263,18 +185,19 @@ func parseUpdateIntvl(interval string, minIntvl int) sgRefresh {
 		}
 		multiplier, err := strconv.ParseFloat(interval[1:], 64)
 		if err != nil {
-			log.Warningf("unable to parse interval multiplier %q, setting to 1", interval)
+			log.Warn("unable to parse interval multiplier, setting to 1", slog.String("interval", interval))
 			return dr
 		}
 		return sgRefresh{multiplier, 0.0}
 	}
 	absTime, err := strconv.ParseFloat(interval, 64)
 	if err != nil {
-		log.Warningf("unable to parse interval value %q, setting to 1x multiplier", interval)
+		log.Warn("unable to parse interval value, setting to 1x multiplier", slog.String("interval", interval))
 		return dr
 	}
 	if absTime < float64(minIntvl) {
-		log.Warningf("absolute update time %v < minimum update time %v. Clamping to minimum", absTime, minIntvl)
+		log.Warn("absolute update time < minimum update time. Clamping to minimum",
+			slog.Float64("absolute update time", absTime), slog.Int("minimum update time", minIntvl))
 		absTime = float64(minIntvl)
 	}
 	return sgRefresh{0.0, absTime}
@@ -309,20 +232,20 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	// Connect to the cluster
 	authtype := cc.AuthType
 	if authtype == "" {
-		log.Infof("No authentication type defined for cluster %s, defaulting to %s", cc.Hostname, authtypeSession)
+		log.Info(fmt.Sprintf("No authentication type defined, defaulting to %s", authtypeSession), slog.String("cluster", cc.Hostname))
 		authtype = defaultAuthType
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
-		log.Warningf("Invalid authentication type %q for cluster %s, using default of %s", authtype, cc.Hostname, authtypeSession)
+		log.Warn(fmt.Sprintf("Invalid authentication type, using default of %s", authtypeSession), slog.String("authtype", authtype), slog.String("cluster", cc.Hostname))
 		authtype = defaultAuthType
 	}
 	if cc.Username == "" || cc.Password == "" {
-		log.Errorf("Username and password for cluster %s must no be null", cc.Hostname)
+		log.Error("Username and password must not be null", slog.String("cluster", cc.Hostname))
 		return
 	}
 	password, err = secretFromEnv(cc.Password)
 	if err != nil {
-		log.Errorf("Unable to retrieve password from environment for cluster %s: %v", cc.Hostname, err.Error())
+		log.Error("Unable to retrieve password from environment", slog.String("cluster", cc.Hostname), slog.String("error", err.Error()))
 		return
 	}
 	c := &Cluster{
@@ -338,19 +261,19 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		PreserveCase: normalize,
 	}
 	if err = c.Connect(); err != nil {
-		log.Errorf("Connection to cluster %s failed: %v", c.Hostname, err)
+		log.Error("Connection failed", slog.String("cluster", c.Hostname), slog.String("error", err.Error()))
 		return
 	}
-	log.Infof("Connected to cluster %s, version %s", c.ClusterName, c.OSVersion)
+	log.Info("Connected", slog.String("cluster", c.ClusterName), slog.String("version", c.OSVersion))
 
-	log.Infof("Fetching stat information for cluster %s, version %s", c.ClusterName, c.OSVersion)
+	log.Info("Fetching stat information", slog.String("cluster", c.ClusterName), slog.String("version", c.OSVersion))
 	sd := c.fetchStatDetails(sg)
 
 	// divide stats into buckets based on update interval
-	log.Infof("Calculating stat refresh times for cluster %s", c.ClusterName)
+	log.Info("Calculating stat refresh times", slog.String("cluster", c.ClusterName))
 	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg, sd)
 	if len(statBuckets) == 0 {
-		log.Errorf("No stat buckets found for cluster %s. Check your config file", c.ClusterName)
+		log.Error("No stat buckets found. Check your config file", slog.String("cluster", c.ClusterName))
 		return
 	}
 
@@ -391,17 +314,17 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	// Configure/initialize backend database writer
 	ss, err = getDBWriter(gc.Processor)
 	if err != nil {
-		log.Error(err)
+		log.Error("failed to obtain backend", slog.String("backend", gc.Processor), slog.String("error", err.Error()))
 		return
 	}
 	err = ss.Init(c.ClusterName, config, ci, sd)
 	if err != nil {
-		log.Errorf("Unable to initialize %s plugin: %v", gc.Processor, err)
+		log.Error("Unable to initialize backend", slog.String("backend", gc.Processor), slog.String("error", err.Error()))
 		return
 	}
 
 	// loop collecting and pushing stats
-	log.Infof("Starting stat collection loop for cluster %s", c.ClusterName)
+	log.Info("Starting stat collection loop", slog.String("cluster", c.ClusterName))
 	for {
 		nextItem := heap.Pop(&pq).(*Item)
 		curTime := time.Now()
@@ -410,7 +333,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			time.Sleep(nextTime.Sub(curTime))
 		}
 		// Collect one set of stats
-		log.Debugf("Cluster %s start collecting stats", c.ClusterName)
+		log.Debug("start stat collection", slog.String("cluster", c.ClusterName))
 		if nextItem.value.stattype == StatTypeRegularStat {
 			var sr []StatResult
 			stats := nextItem.value.sts.stats
@@ -423,7 +346,12 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					break
 				}
 				readFailCount++
-				log.Errorf("Failed to retrieve stats for cluster %q: %v - retry #%d in %v", c.ClusterName, err, readFailCount, retryTime)
+				log.Error("Failed to retrieve stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()),
+					slog.Int("retry count", readFailCount), slog.Duration("retry time", retryTime))
+				// if readFailCount >= c.maxRetries {
+				// 	log.Error("maximum retries reached, stopping collection", slog.String("cluster", c.ClusterName))
+				// 	return
+				// }
 				time.Sleep(retryTime)
 				if retryTime < maxRetryTime {
 					retryTime *= 2
@@ -434,18 +362,18 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			}
 			nextItem.priority = nextItem.priority.Add(nextItem.value.sts.interval)
 			heap.Push(&pq, nextItem)
-			log.Debugf("Cluster %s start writing stats to back end", c.ClusterName)
+			log.Debug("start writing stats to back end", slog.String("cluster", c.ClusterName))
 			// write stats, now with retries
 			err = c.WriteStats(gc, ss, sr)
 			if err != nil {
-				log.Errorf("unable to write stats to database, stopping collection for cluster %s", c.ClusterName)
+				log.Error("unable to write stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 				return
 			}
 		} else if nextItem.value.stattype == StatTypeSummaryStatProtocol {
-			log.Debugf("collecting protocol summary stats for cluster %s here", c.ClusterName)
+			log.Debug("collecting protocol summary stats", slog.String("cluster", c.ClusterName))
 			ssp, err := c.GetSummaryProtocolStats()
 			if err != nil {
-				log.Errorf("failed to collect summary protocol stats: %v", err)
+				log.Error("failed to collect summary protocol stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()))
 			} else {
 				name := summaryStatsBasename + "protocol"
 				points := make([]Point, len(ssp))
@@ -457,20 +385,20 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					ta = append(ta, tags)
 					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
 				}
-				log.Debugf("Cluster %s start writing protocol summary stats to back end", c.ClusterName)
+				log.Debug("start writing protocol summary stats to back end", slog.String("cluster", c.ClusterName))
 				err = ss.WritePoints(points)
 				if err != nil {
-					log.Errorf("unable to write protocol summary stats to database, stopping collection for cluster %s", c.ClusterName)
+					log.Error("unable to write protocol summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 					return
 				}
 			}
 			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
 			heap.Push(&pq, nextItem)
 		} else if nextItem.value.stattype == StatTypeSummaryStatClient {
-			log.Debugf("collecting client summary stats for cluster %s here", c.ClusterName)
+			log.Debug("collecting client summary stats", slog.String("cluster", c.ClusterName))
 			ssc, err := c.GetSummaryClientStats()
 			if err != nil {
-				log.Errorf("failed to collect summary client stats: %v", err)
+				log.Error("failed to collect summary client stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()))
 			} else {
 				name := summaryStatsBasename + "client"
 				points := make([]Point, len(ssc))
@@ -482,17 +410,17 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					ta = append(ta, tags)
 					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
 				}
-				log.Debugf("Cluster %s start writing client summary stats to back end", c.ClusterName)
+				log.Debug("start writing client summary stats to back end", slog.String("cluster", c.ClusterName))
 				err = ss.WritePoints(points)
 				if err != nil {
-					log.Errorf("unable to write client summary stats to database, stopping collection for cluster %s", c.ClusterName)
+					log.Error("unable to write client summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 					return
 				}
 			}
 			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
 			heap.Push(&pq, nextItem)
 		} else {
-			log.Panicf("logic error: unknown summary stat type %v", nextItem.value.stattype)
+			die("logic error: unknown summary stat type", slog.Int("stat type", int(nextItem.value.stattype)))
 		}
 
 	}
@@ -519,12 +447,12 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 		}
 		multiplier := sg[group].sgRefresh.multiplier
 		if multiplier == 0 {
-			log.Panicf("logic error: both multiplier and absTime are zero")
+			die("logic error: both multiplier and absTime are zero")
 		}
 		for _, stat := range sg[group].stats {
 			sd := sd[stat]
 			if !sd.valid {
-				log.Warningf("cluster %s: skipping invalid stat: '%v'", c.ClusterName, stat)
+				log.Warn("skipping invalid stat", slog.String("cluster", c.ClusterName), slog.String("stats", stat))
 				continue
 			}
 			sui := sd.updateIntvl
@@ -541,7 +469,7 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 				d = time.Duration(intvlSecs) * time.Second
 			}
 			if d == 0 {
-				log.Fatalf("logic error: zero duration: stat %q, update interval %v, multiplier %v", stat, sui, multiplier)
+				die("logic error: zero duration", slog.String("stat", stat), slog.Float64("update interval", sui), slog.Float64("multiplier", multiplier))
 			}
 			stm[d] = append(stm[d], stat)
 		}
@@ -587,6 +515,6 @@ func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
 		}
 	}
 	if len(missing) != 0 {
-		log.Errorf("Stats collection for cluster %s failed to collect the following stats: %v", cluster, missing)
+		log.Error("Stats collection missing stats", slog.String("cluster", cluster), slog.String("missing", fmt.Sprintf("%+v", missing)))
 	}
 }

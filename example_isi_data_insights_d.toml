@@ -4,10 +4,7 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.30"
-
-logfile = "gostats.log"
-log_to_stdout = false
+version = "v0.31"
 
 # Pluggable back end support
 # Supported back ends are "influxdb", "influxdbv2", "prometheus" and "discard"
@@ -58,6 +55,17 @@ active_stat_groups = [
 ]
 
 ############################ End of global section ############################
+
+############################# Logging configuration ###########################
+
+[logging]
+logfile = "gostats.log"
+logfile_format = "text"  # text or json
+# log_level = "info"       # trace, debug, info, notice, warn, error, critical
+# Whether to also log to stdout
+log_to_stdout = false
+
+######################### End of Logging configuration ########################
 
 ############################ Back end configuration ###########################
 # Influxdb configuration

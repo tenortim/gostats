@@ -1,6 +1,33 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.30 Wed Nov 19 11:23:36 2025 -0800
+
+### Bug Fixes
+
+- Fix handling of degraded stats
+  - When a node in the cluster is down, stat returns are marked degraded. The stat engine will still retrieve data but the stat returns are marked with an error code. Unfortunately, code to handle missing stats and add them to a list of "bad" stats that should not be collected also caught the degraded case and so these stats ended up "disappearing".
+  - Added a full list of the expected return types and handle them all appropriately.
+  - All stats now have a "degraded" label/tag that is set to true or false depending on whether we received a degraded result.
+  - Fix node info argument to current stats endpoint
+  - The argument is "show_nodes=true", not "node_info=true".
+
+## 0.29 Wed Nov 12 14:01:19 2025 -0800
+
+> [!IMPORTANT]
+> The lnn code change below does not work because it passed the wrong argument to the endpoint. Use version 0.30 above.
+
+### Changes
+
+- Fix regular stats node vs devid
+  - The general stats endpoint returns a devid which is less usable. It takes an argument that also returns the logical node number. Add code to grab the lnn
+- Update/improve code comments
+
+### Bug Fixes
+
+- Fix Windows build after reuseaddr change
+  - The interface to set SO_REUSEADDR on the socket is different on Windows than on Unix. Refector to pull out the listenconfig control routine into two files, one for Windows, one for the rest.
+
 ## v0.28 - Fri Sep 19 10:29:10 2025 -0700
 
 ### Changes

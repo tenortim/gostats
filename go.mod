@@ -1,15 +1,13 @@
 module timw/isilon/gostats
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.24.6
 
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
-	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/prometheus/client_golang v1.20.5
+	github.com/samber/slog-multi v1.6.0
 	golang.org/x/net v0.38.0
 )
 
@@ -20,6 +18,9 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
+	github.com/samber/lo v1.52.0 // indirect
+	github.com/samber/slog-common v0.19.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 )
 
 require (
