@@ -7,18 +7,19 @@ The Grafana dashboards provided with the data insights project may be used witho
 
 ## Installation Instructions
 
-The current version of gostats requires Golang version 1.21 or higher to build.
+The current version of gostats requires Golang version **1.24** or higher to build (see `go.mod`).
 
 * $ go build
+* $ go test -v ./...
 
 ## Run Instructions
 
-* Rename or copy the example configuration file, example_isi_data_insights_d.toml to idic.toml. The path ./idic.toml is the default configuration file path for the Go version of the connector. If you use that name and run the connector from the source directory then you don't have to use the -config-file parameter to specify a different configuration file.
+* Rename or copy the example configuration file, example_isi_data_insights_d.toml to idic.toml. The path ./idic.toml is the default configuration file path. If you use that name and run gostats from the source directory then you don't have to use the -config-file parameter.
 * Edit the idic.toml file so that it is set up to query the set of Dell PowerScale OneFS clusters that you wish to monitor. Do this by modifying and replicating the cluster config section.
-* The example configuration file is configured to send several sets of stats to InfluxDB via the influxdb.go backend. If you intend to use the default backend, you will need to install InfluxDB. InfluxDB can be installed locally (i.e on the same system as the connector) or remotely (i.e. on a different system). Follow the [install instructions](https://portal.influxdata.com/downloads/) but install "indluxdb" not "influxdb2"
+* The example configuration file is configured to send several sets of stats to InfluxDB via the influxdb.go backend. If you intend to use the default backend, you will need to install **InfluxDB v1**. InfluxDB can be installed locally (i.e. on the same system as gostats) or remotely (i.e. on a different system). Follow the InfluxData install instructions, but install **"influxdb" (v1)** not "influxdb2".
 
 * If you installed InfluxDB to somewhere other than localhost and/or port 8086, then you'll also need to update the configuration file with the address and port of the InfluxDB service.
-* If using InfluxDB, you must create the "isi_data_insights" database before running the collectors:
+* If using InfluxDB v1, you must create the "isi_data_insights" database before running the collectors:
 
     ```sh
      influx -host localhost -port 8086 -execute 'create database isi_data_insights'
@@ -38,8 +39,11 @@ The current version of gostats requires Golang version 1.21 or higher to build.
     (nohup ./gostats &)
     ```
 
-* If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanze. This will spawn a Prometheus http metrics listener on the configured port.
-  
+* If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanza. This will spawn a Prometheus HTTP metrics listener on the configured port.
+
+Additional config notes:
+* The config file must be versioned (see the example config). Current collector versions accept config versions 0.31 and 0.32.
+* Password/token fields may reference environment variables by using the `$env:VARNAME` prefix in the TOML; gostats will replace it at runtime.
 ## Customizing the connector
 
 The connector is designed to allow for customization via a plugin architecture. The original plugin, influxdb.go, can be configured via the provided example configuration file. If you would like to process the stats data differently or send them to a different backend than the influxdb.go you can use one of the other provided backend processors or you can implement your own custom stats processor. The backend interface type is defined in statssink.go. Here are the instructions for creating a new backend:
