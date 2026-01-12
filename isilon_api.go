@@ -96,6 +96,7 @@ const (
 	StatErrorDegraded
 	StatErrorStale
 	StatErrorConnTimeout
+	StatErrorTimeout
 	StatErrorNoHistory
 	StatErrorSystem
 	StatErrorNotConfigured

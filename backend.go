@@ -273,9 +273,9 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 			// add it to the set of bad (unavailable) stats
 			c.badStats.Add(stat.Key)
 			continue
-		case StatErrorStale, StatErrorConnTimeout, StatErrorNoHistory, StatErrorSystem:
+		case StatErrorStale, StatErrorConnTimeout, StatErrorTimeout, StatErrorNoHistory, StatErrorSystem:
 			// just skip over this time
-			log.Warn("Skipping stat", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.String("error", stat.ErrorString))
+			log.Warn("Skipping stat", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.Int("errorcode", stat.ErrorCode), slog.String("error", stat.ErrorString))
 			continue
 		default:
 			// unknown error
