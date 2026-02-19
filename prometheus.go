@@ -235,7 +235,7 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	if port == nil {
 		return fmt.Errorf("prometheus plugin initialization failed - missing port definition for cluster %v", clusterName)
 	}
-	pc := s.client
+	pc := &s.client
 	pc.ListenPort = *port
 
 	if promconf.Authenticated {
@@ -276,9 +276,7 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	s.metricMap = metricMap
 
 	// Set up http server here
-	err := pc.Connect()
-
-	return err
+	return pc.Connect()
 }
 
 // Description provides a description of this sink

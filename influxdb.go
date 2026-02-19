@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	client "github.com/influxdata/influxdb1-client/v2"
 )
 
@@ -13,7 +12,6 @@ type InfluxDBSink struct {
 	cluster  string
 	client   client.Client
 	bpConfig client.BatchPointsConfig
-	badStats mapset.Set[string]
 }
 
 // GetInfluxDBWriter returns an InfluxDB DBWriter
@@ -58,7 +56,6 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 	}
 	log.Info("successfully connected to InfluxDB", "response", response, "response_time", response_time)
 	s.client = client
-	s.badStats = mapset.NewSet[string]()
 	return nil
 }
 

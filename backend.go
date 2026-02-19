@@ -233,9 +233,7 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 			}
 		}
 	default:
-		// TODO consider returning an error rather than panicing
-		log.Error("Unable to decode stat", slog.String("stat", statname))
-		panic(fmt.Sprintf("Failed to handle unwrap of value type %T in stat %s\n", val, statname))
+		return nil, nil, fmt.Errorf("failed to handle unwrap of value type %T in stat %s", val, statname)
 	}
 	log.Debug("decodeValue returning", slog.Int("field count", len(mfa)), slog.Int("tag count", len(mta)))
 	return mfa, mta, nil

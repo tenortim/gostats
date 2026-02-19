@@ -252,14 +252,15 @@ func (c *Cluster) Authenticate() error {
 	// POST our authentication request to the API
 	// This may be our first connection so we'll retry here in the hope that if
 	// we can't connect to one node, another may be responsive
-	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(b))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Content-Type", "application/json")
 	retrySecs := 1
 	for i := 1; i <= c.maxRetries; i++ {
+		var req *http.Request
+		req, err = http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(b))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("Content-Type", "application/json")
 		resp, err = c.client.Do(req)
 		if err == nil {
 			break
@@ -291,7 +292,12 @@ func (c *Cluster) Authenticate() error {
 	var timeout int
 	ta, ok := ar["timeout_absolute"]
 	if ok {
-		timeout = int(ta.(float64))
+		if taF, ok := ta.(float64); ok {
+			timeout = int(taF)
+		} else {
+			log.Warn("authentication API returned unexpected type for timeout value, using default")
+			timeout = 14400
+		}
 	} else {
 		// This shouldn't happen, but just set it to a sane default
 		log.Warn("authentication API did not return timeout value, using default")
@@ -329,16 +335,27 @@ func (c *Cluster) GetClusterConfig() error {
 	if err != nil {
 		return err
 	}
-	m := v.(map[string]any)
-	version := m["onefs_version"]
-	r := version.(map[string]any)
-	release := r["version"]
-	rel := release.(string)
+	m, ok := v.(map[string]any)
+	if !ok {
+		return fmt.Errorf("GetClusterConfig: unexpected JSON structure for cluster config")
+	}
+	version, ok := m["onefs_version"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("GetClusterConfig: unexpected type for onefs_version field")
+	}
+	rel, ok := version["version"].(string)
+	if !ok {
+		return fmt.Errorf("GetClusterConfig: unexpected type for version field")
+	}
 	c.OSVersion = rel
+	name, ok := m["name"].(string)
+	if !ok {
+		return fmt.Errorf("GetClusterConfig: unexpected type for name field")
+	}
 	if c.PreserveCase {
-		c.ClusterName = m["name"].(string)
+		c.ClusterName = name
 	} else {
-		c.ClusterName = strings.ToLower(m["name"].(string))
+		c.ClusterName = strings.ToLower(name)
 	}
 	return nil
 }
@@ -398,7 +415,7 @@ func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) 
 }
 
 // UnmarshalSummaryStatsClient unmarshals the JSON return from the summary stats client endpoint
-func UnMarshalSummaryStatsClient(data []byte) (SummaryStatsClient, error) {
+func UnmarshalSummaryStatsClient(data []byte) (SummaryStatsClient, error) {
 	var r SummaryStatsClient
 	err := json.Unmarshal(data, &r)
 	return r, err
@@ -417,7 +434,7 @@ func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
 	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
 	// when using session cookies)
 	log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
-	r, err := UnMarshalSummaryStatsClient(resp)
+	r, err := UnmarshalSummaryStatsClient(resp)
 	if err != nil {
 		errmsg := fmt.Errorf("cluster %s unable to parse client summary stats response %q - error %s", c, resp, err)
 		return nil, errmsg
@@ -541,52 +558,96 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		return nil, err
 	}
 
-	m := v.(map[string]any)
+	m, ok := v.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("parseStatInfo: unexpected JSON structure")
+	}
 	// Did the API throw an error?
 	if ea, ok := m["errors"]; ok {
 		// handle API error return here
 		// I've never seen more than one error in the array, but we handle it anyway
-		ea := ea.([]any)
+		eaSlice, ok := ea.([]any)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for errors field")
+		}
 		es := bytes.NewBufferString("Error: ")
-		for _, e := range ea {
-			e := e.(map[string]any)
-			es.WriteString(fmt.Sprintf("code: %q, message: %q", e["code"], e["message"]))
+		for _, e := range eaSlice {
+			eMap, ok := e.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("parseStatInfo: unexpected type for error entry")
+			}
+			fmt.Fprintf(es, "code: %q, message: %q", eMap["code"], eMap["message"])
 		}
 		return nil, fmt.Errorf("%s", es.String())
 	}
 
 	var keys any
-	var ok bool
 	if keys, ok = m["keys"]; !ok {
 		// If we didn't get an error above, we should have got a valid return
 		return nil, fmt.Errorf("unexpected JSON return %#v", m)
 	}
-	ka := keys.([]any)
+	ka, ok := keys.([]any)
+	if !ok {
+		return nil, fmt.Errorf("parseStatInfo: unexpected type for keys field")
+	}
 	for _, k := range ka {
 		// pull info from key
-		k := k.(map[string]any)
+		kMap, ok := k.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for key entry")
+		}
 		// Extract stat update times out of "policies" if they exist
-		kp := k["policies"]
+		kp := kMap["policies"]
 		if kp == nil {
 			// 0 == no defined update interval i.e. on-demand
 			detail.updateIntvl = 0.0
 		} else {
-			kpa := kp.([]any)
+			kpa, ok := kp.([]any)
+			if !ok {
+				return nil, fmt.Errorf("parseStatInfo: unexpected type for policies field")
+			}
 			for _, pol := range kpa {
-				pol := pol.(map[string]any)
+				polMap, ok := pol.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("parseStatInfo: unexpected type for policy entry")
+				}
 				// we only want the current info, not the historical
-				if pol["persistent"] == false {
-					detail.updateIntvl = pol["interval"].(float64)
+				if polMap["persistent"] == false {
+					intvl, ok := polMap["interval"].(float64)
+					if !ok {
+						return nil, fmt.Errorf("parseStatInfo: unexpected type for interval field")
+					}
+					detail.updateIntvl = intvl
 					break
 				}
 			}
 		}
-		detail.description = k["description"].(string)
-		detail.units = k["units"].(string)
-		detail.scope = k["scope"].(string)
-		detail.datatype = k["type"].(string)
-		detail.aggType = k["aggregation_type"].(string)
-		// key := k["key"]
+		description, ok := kMap["description"].(string)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for description field")
+		}
+		detail.description = description
+		units, ok := kMap["units"].(string)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for units field")
+		}
+		detail.units = units
+		scope, ok := kMap["scope"].(string)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for scope field")
+		}
+		detail.scope = scope
+		datatype, ok := kMap["type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for type field")
+		}
+		detail.datatype = datatype
+		aggType, ok := kMap["aggregation_type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("parseStatInfo: unexpected type for aggregation_type field")
+		}
+		detail.aggType = aggType
+		// key := kMap["key"]
 	}
 
 	detail.valid = true
@@ -629,7 +690,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 
 	retrySecs := 1
-	for i := 1; i < c.maxRetries; i++ {
+	for i := 1; i <= c.maxRetries; i++ {
 		resp, err = c.client.Do(req)
 		if err == nil {
 			// We got a valid http response

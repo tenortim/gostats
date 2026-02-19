@@ -28,7 +28,7 @@ var log *slog.Logger
 // If the string does not match a known level, it returns an error.
 func ParseLevel(levelStr string) (slog.Level, error) {
 	var level slog.Level
-	var err error = nil
+	var err error
 	switch strings.ToUpper(levelStr) {
 	case "TRACE":
 		level = LevelTrace
@@ -38,7 +38,7 @@ func ParseLevel(levelStr string) (slog.Level, error) {
 		level = slog.LevelInfo
 	case "NOTICE":
 		level = LevelNotice
-	case "WARN":
+	case "WARN", "WARNING":
 		level = slog.LevelWarn
 	case "ERROR":
 		level = slog.LevelError
@@ -59,7 +59,10 @@ func loggingOptions(level slog.Level) *slog.HandlerOptions {
 			// custom level values.
 			if a.Key == slog.LevelKey {
 				// Handle custom level values.
-				level := a.Value.Any().(slog.Level)
+				level, ok := a.Value.Any().(slog.Level)
+				if !ok {
+					return a
+				}
 
 				// This could also look up the name from a map or other structure, but
 				// this demonstrates using a switch statement to rename levels. For

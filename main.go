@@ -91,7 +91,9 @@ func main() {
 
 	// ugly, but we have to do this here since it's global, not a per-cluster
 	if conf.Global.Processor == PROM_PLUGIN_NAME && conf.PromSD.Enabled {
-		startPromSdListener(conf)
+		if err := startPromSdListener(conf); err != nil {
+			log.Error("Failed to start Prometheus SD listener", slog.String("error", err.Error()))
+		}
 	}
 
 	// start collecting from each defined and enabled cluster
@@ -287,7 +289,6 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			priority: startTime,
 			index:    i,
 		}
-		i++
 	}
 	i := len(pq)
 	// add entries for summary stats
@@ -348,10 +349,10 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 				readFailCount++
 				log.Error("Failed to retrieve stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()),
 					slog.Int("retry count", readFailCount), slog.Duration("retry time", retryTime))
-				// if readFailCount >= c.maxRetries {
-				// 	log.Error("maximum retries reached, stopping collection", slog.String("cluster", c.ClusterName))
-				// 	return
-				// }
+				if readFailCount >= c.maxRetries {
+					log.Warn("cluster may be down or unreachable", slog.String("cluster", c.ClusterName),
+						slog.Int("retry count", readFailCount))
+				}
 				time.Sleep(retryTime)
 				if retryTime < maxRetryTime {
 					retryTime *= 2
@@ -377,13 +378,13 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			} else {
 				name := summaryStatsBasename + "protocol"
 				points := make([]Point, len(ssp))
-				for i, ss := range ssp {
+				for i, stat := range ssp {
 					var fa []ptFields
 					var ta []ptTags
-					fields, tags := DecodeProtocolSummaryStat(c.ClusterName, ss)
+					fields, tags := DecodeProtocolSummaryStat(c.ClusterName, stat)
 					fa = append(fa, fields)
 					ta = append(ta, tags)
-					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
+					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
 				}
 				log.Debug("start writing protocol summary stats to back end", slog.String("cluster", c.ClusterName))
 				err = ss.WritePoints(points)
@@ -402,13 +403,13 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			} else {
 				name := summaryStatsBasename + "client"
 				points := make([]Point, len(ssc))
-				for i, ss := range ssc {
+				for i, stat := range ssc {
 					var fa []ptFields
 					var ta []ptTags
-					fields, tags := DecodeClientSummaryStat(c.ClusterName, ss)
+					fields, tags := DecodeClientSummaryStat(c.ClusterName, stat)
 					fa = append(fa, fields)
 					ta = append(ta, tags)
-					points[i] = Point{name: name, time: ss.Time, fields: fa, tags: ta}
+					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
 				}
 				log.Debug("start writing client summary stats to back end", slog.String("cluster", c.ClusterName))
 				err = ss.WritePoints(points)

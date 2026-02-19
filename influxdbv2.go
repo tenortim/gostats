@@ -6,17 +6,16 @@ import (
 	"log/slog"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
 // InfluxDBv2Sink defines the data to allow us talk to an InfluxDBv2 database
 type InfluxDBv2Sink struct {
 	cluster  string
 	c        influxdb2.Client
-	writeAPI api.WriteAPI
-	badStats mapset.Set[string]
+	writeAPI api.WriteAPIBlocking
 }
 
 // GetInfluxDBv2Writer returns an InfluxDBv2 DBWriter
@@ -53,31 +52,21 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	}
 	log.Info("successfully connected to InfluxDBv2", slog.String("cluster", cluster))
 	
-	writeAPI := client.WriteAPI(ic.Org, ic.Bucket)
 	s.c = client
-	s.writeAPI = writeAPI
-
-	// Get errors channel
-	errorsCh := writeAPI.Errors()
-	// Create goroutine for reading and logging errors
-	go func() {
-		for err := range errorsCh {
-			log.Error("InfluxDB async write failed", slog.String("cluster", cluster), slog.String("error", err.Error()))
-		}
-	}()
-	s.badStats = mapset.NewSet[string]()
+	s.writeAPI = client.WriteAPIBlocking(ic.Org, ic.Bucket)
 	return nil
 }
 
 // WritePoints writes a batch of points to InfluxDBv2
 func (s *InfluxDBv2Sink) WritePoints(points []Point) error {
+	var pts []*write.Point
 	for _, point := range points {
 		for i, field := range point.fields {
-			pt := influxdb2.NewPoint(point.name, point.tags[i], field, time.Unix(point.time, 0).UTC())
-			s.writeAPI.WritePoint(pt)
+			pts = append(pts, influxdb2.NewPoint(point.name, point.tags[i], field, time.Unix(point.time, 0).UTC()))
 		}
 	}
-	// write the batch
-	s.writeAPI.Flush()
+	if err := s.writeAPI.WritePoint(context.Background(), pts...); err != nil {
+		return fmt.Errorf("InfluxDBv2 write failed: %w", err)
+	}
 	return nil
 }
