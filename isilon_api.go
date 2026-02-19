@@ -454,45 +454,61 @@ func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
 // array of StatResult structures
 func (c *Cluster) GetStats(stats []string) ([]StatResult, error) {
 	var results []StatResult
-	var buffer bytes.Buffer
 
 	basePath := statsPath + "?degraded=true&devid=all&show_nodes=true"
-	// length of key args
-	la := 0
-	// Need special case for short last get
-	ls := len(stats)
-	log.Info("fetching stats", slog.String("cluster", c.String()), slog.Int("count", ls))
-	// max minus (initial string + slop)
-	maxlen := MaxAPIPathLen - (len(basePath) + 100)
+	log.Info("fetching stats", slog.String("cluster", c.String()), slog.Int("count", len(stats)))
+	// max space available for &key=... args (subtract basePath length and some slop)
+	maxKeyLen := MaxAPIPathLen - (len(basePath) + 100)
+
+	var buffer bytes.Buffer
 	buffer.WriteString(basePath)
-	for i, stat := range stats {
-		// 5 == len("?key=")
-		if la+5+len(stat) < maxlen {
-			buffer.WriteString("&key=")
-			buffer.WriteString(stat)
-			if i != ls-1 {
-				continue
+	keyLen := 0
+
+	for _, stat := range stats {
+		keyArg := "&key=" + stat
+		if keyLen > 0 && keyLen+len(keyArg) > maxKeyLen {
+			// Current batch is full; send it before adding the next stat
+			log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
+			resp, err := c.restGet(buffer.String())
+			if err != nil {
+				log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+				// TODO investigate handling partial errors rather than totally failing?
+				return nil, err
 			}
+			log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
+			r, err := parseStatResult(resp)
+			if err != nil {
+				log.Error("unable to parse response", slog.String("cluster", c.String()), slog.String("response", string(resp)), slog.String("error", err.Error()))
+				return nil, err
+			}
+			log.Log(ctx, LevelTrace, "parsed stats results", slog.String("cluster", c.String()), "results", r)
+			results = append(results, r...)
+			buffer.Reset()
+			buffer.WriteString(basePath)
+			keyLen = 0
 		}
-		log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
-		resp, err := c.restGet(buffer.String())
-		if err != nil {
-			log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
-			// TODO investigate handling partial errors rather than totally failing?
-			return nil, err
-		}
-		// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
-		// when using session cookies)
-		log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
-		r, err := parseStatResult(resp)
-		if err != nil {
-			log.Error("unable to parse response", slog.String("cluster", c.String()), slog.String("response", string(resp)), slog.String("error", err.Error()))
-			return nil, err
-		}
-		log.Log(ctx, LevelTrace, "parsed stats results", slog.String("cluster", c.String()), "results", r)
-		results = append(results, r...)
-		buffer.Reset()
+		buffer.WriteString(keyArg)
+		keyLen += len(keyArg)
 	}
+
+	// Send the final (or only) batch
+	log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
+	resp, err := c.restGet(buffer.String())
+	if err != nil {
+		log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		return nil, err
+	}
+	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
+	// when using session cookies)
+	log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
+	r, err := parseStatResult(resp)
+	if err != nil {
+		log.Error("unable to parse response", slog.String("cluster", c.String()), slog.String("response", string(resp)), slog.String("error", err.Error()))
+		return nil, err
+	}
+	log.Log(ctx, LevelTrace, "parsed stats results", slog.String("cluster", c.String()), "results", r)
+	results = append(results, r...)
+
 	return results, nil
 }
 
