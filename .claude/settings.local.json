@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/timw/git/gostats status)",
+      "Bash(git -C /c/Users/timw/git/gostats log --oneline -5)"
+    ]
+  }
+}
