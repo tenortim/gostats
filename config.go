@@ -17,8 +17,8 @@ const defaultMinUpdateInterval = 30
 
 // Default retry limit
 const defaultMaxRetries = 8
-const ProcessordefaultMaxRetries = 8
-const ProcessorDefaultRetryIntvl = 5
+const processorDefaultMaxRetries = 8
+const processorDefaultRetryIntvl = 5
 
 // Default Normalizaion of ClusterNames
 const defaultPreserveCase = false
@@ -140,8 +140,8 @@ func validateConfigVersion(confVersion string) {
 func mustReadConfig(configFileName string) tomlConfig {
 	var conf tomlConfig
 	conf.Global.MaxRetries = defaultMaxRetries
-	conf.Global.ProcessorMaxRetries = ProcessordefaultMaxRetries
-	conf.Global.ProcessorRetryIntvl = ProcessorDefaultRetryIntvl
+	conf.Global.ProcessorMaxRetries = processorDefaultMaxRetries
+	conf.Global.ProcessorRetryIntvl = processorDefaultRetryIntvl
 	conf.Global.MinUpdateInvtl = defaultMinUpdateInterval
 	conf.Global.PreserveCase = defaultPreserveCase
 
@@ -164,20 +164,20 @@ func mustReadConfig(configFileName string) tomlConfig {
 	return conf
 }
 
-const ENVPREFIX = "$env:"
+const envPrefix = "$env:"
 
 // secretFromEnv checks if the string starts with $env: and if so, looks up
 // the rest of the string as an environment variable and returns its value.
 // If the env var is not set, an error is returned.
 // If the string does not start with $env:, it is returned unchanged.
 func secretFromEnv(s string) (string, error) {
-	if !strings.HasPrefix(s, ENVPREFIX) {
+	if !strings.HasPrefix(s, envPrefix) {
 		return s, nil
 	}
-	envvar := strings.TrimPrefix(s, ENVPREFIX)
-	secret := os.Getenv(envvar)
-	if secret == "" {
-		return "", fmt.Errorf("unable to find environment variable %s to interpolate", envvar)
+	envvar := strings.TrimPrefix(s, envPrefix)
+	secret, ok := os.LookupEnv(envvar)
+	if !ok {
+		return "", fmt.Errorf("environment variable %q is not set", envvar)
 	}
 	return secret, nil
 }

@@ -94,11 +94,11 @@ func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 
 // DecodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
-func DecodeStat(cluster string, stat StatResult, include_degraded bool, degraded bool) ([]ptFields, []ptTags, error) {
+func DecodeStat(cluster string, stat StatResult, includeDegraded bool, degraded bool) ([]ptFields, []ptTags, error) {
 	var initialTags ptTags
 	clusterStatTags := ptTags{"cluster": cluster}
 	nodeStatTags := ptTags{"cluster": cluster}
-	if include_degraded {
+	if includeDegraded {
 		clusterStatTags["degraded"] = strconv.FormatBool(degraded)
 		nodeStatTags["degraded"] = strconv.FormatBool(degraded)
 	}
@@ -137,14 +137,14 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 	log.Debug("decodeValue entry", slog.String("stat", statname), slog.String("field", fieldname), "value", v, slog.Int("depth", depth))
 	switch val := v.(type) {
 	case float64, int64, int:
-		log.Debug(fmt.Sprintf("decoding primitive value: %T", val))
+		log.Debug("decoding primitive value", slog.String("type", fmt.Sprintf("%T", val)))
 		if fieldname == "" {
 			// We should never get here, as we should have handled this in the parent call
 			die("unexpected primitive value with no name", slog.String("stat", statname))
 		}
 		fields := make(ptFields)
 		fields[fieldname] = val
-		log.Debug(fmt.Sprintf("decoded fields: %#v", fields))
+		log.Debug("decoded fields", slog.Any("fields", fields))
 		mfa = append(mfa, fields)
 		mta = append(mta, baseTags)
 	case string:
@@ -282,8 +282,7 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 		}
 		fa, ta, err := DecodeStat(c.ClusterName, stat, gc.IncludeDegraded, degraded)
 		if err != nil {
-			// TODO consider trying to recover/handle errors
-			die(fmt.Sprintf("Failed to decode stat %+v: %s\n", stat, err))
+			return fmt.Errorf("failed to decode stat %s: %w", stat.Key, err)
 		}
 		point := Point{name: stat.Key, time: stat.UnixTime, fields: fa, tags: ta}
 		points = append(points, point)

@@ -25,10 +25,10 @@ const defaultAuthType = authtypeSession
 
 // Config file plugin names
 const (
-	DISCARD_PLUGIN_NAME  = "discard"
-	INFLUX_PLUGIN_NAME   = "influxdb"
-	INFLUXv2_PLUGIN_NAME = "influxdbv2"
-	PROM_PLUGIN_NAME     = "prometheus"
+	discardPluginName  = "discard"
+	influxPluginName   = "influxdb"
+	influxV2PluginName = "influxdbv2"
+	promPluginName     = "prometheus"
 )
 
 // parsed/populated stat structures
@@ -87,10 +87,10 @@ func main() {
 	// Determine which stats to poll
 	log.Info("Parsing stat groups and stats")
 	sg := parseStatConfig(conf)
-	// log.Infof("Parsed stats; %d stats will be collected", len(sc.stats))
+
 
 	// ugly, but we have to do this here since it's global, not a per-cluster
-	if conf.Global.Processor == PROM_PLUGIN_NAME && conf.PromSD.Enabled {
+	if conf.Global.Processor == promPluginName && conf.PromSD.Enabled {
 		if err := startPromSdListener(conf); err != nil {
 			log.Error("Failed to start Prometheus SD listener", slog.String("error", err.Error()))
 		}
@@ -223,22 +223,22 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 	cc := config.Clusters[ci]
 	gc := config.Global
 
-	var normalize bool
+	var preserveCase bool
 
 	if cc.PreserveCase == nil { // check for cluster overwrite setting of PreserveCase, default and to global setting
-		normalize = gc.PreserveCase
+		preserveCase = gc.PreserveCase
 	} else {
-		normalize = *cc.PreserveCase
+		preserveCase = *cc.PreserveCase
 	}
 
 	// Connect to the cluster
 	authtype := cc.AuthType
 	if authtype == "" {
-		log.Info(fmt.Sprintf("No authentication type defined, defaulting to %s", authtypeSession), slog.String("cluster", cc.Hostname))
+		log.Info("No authentication type defined, using default", slog.String("default", authtypeSession), slog.String("cluster", cc.Hostname))
 		authtype = defaultAuthType
 	}
 	if authtype != authtypeSession && authtype != authtypeBasic {
-		log.Warn(fmt.Sprintf("Invalid authentication type, using default of %s", authtypeSession), slog.String("authtype", authtype), slog.String("cluster", cc.Hostname))
+		log.Warn("Invalid authentication type, using default", slog.String("authtype", authtype), slog.String("default", authtypeSession), slog.String("cluster", cc.Hostname))
 		authtype = defaultAuthType
 	}
 	if cc.Username == "" || cc.Password == "" {
@@ -260,7 +260,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		Port:         8080,
 		VerifySSL:    cc.SSLCheck,
 		maxRetries:   gc.MaxRetries,
-		PreserveCase: normalize,
+		PreserveCase: preserveCase,
 	}
 	if err = c.Connect(); err != nil {
 		log.Error("Connection failed", slog.String("cluster", c.Hostname), slog.String("error", err.Error()))
@@ -451,12 +451,12 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 			die("logic error: both multiplier and absTime are zero")
 		}
 		for _, stat := range sg[group].stats {
-			sd := sd[stat]
-			if !sd.valid {
+			statDetail := sd[stat]
+			if !statDetail.valid {
 				log.Warn("skipping invalid stat", slog.String("cluster", c.ClusterName), slog.String("stats", stat))
 				continue
 			}
-			sui := sd.updateIntvl
+			sui := statDetail.updateIntvl
 			var d time.Duration
 			if sui == 0 {
 				// no defined update interval for this stat so use our default
@@ -488,13 +488,13 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 // returns an error if the plugin name is not recognized
 func getDBWriter(sp string) (DBWriter, error) {
 	switch sp {
-	case DISCARD_PLUGIN_NAME:
+	case discardPluginName:
 		return GetDiscardWriter(), nil
-	case INFLUX_PLUGIN_NAME:
+	case influxPluginName:
 		return GetInfluxDBWriter(), nil
-	case INFLUXv2_PLUGIN_NAME:
+	case influxV2PluginName:
 		return GetInfluxDBv2Writer(), nil
-	case PROM_PLUGIN_NAME:
+	case promPluginName:
 		return GetPrometheusWriter(), nil
 	default:
 		return nil, fmt.Errorf("unsupported backend plugin %q", sp)
@@ -516,6 +516,6 @@ func verifyStatReturn(cluster string, stats []string, sr []StatResult) {
 		}
 	}
 	if len(missing) != 0 {
-		log.Error("Stats collection missing stats", slog.String("cluster", cluster), slog.String("missing", fmt.Sprintf("%+v", missing)))
+		log.Error("Stats collection missing stats", slog.String("cluster", cluster), slog.Any("missing", missing))
 	}
 }

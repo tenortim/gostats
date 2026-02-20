@@ -37,7 +37,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		password = ic.Password
 		password, err = secretFromEnv(password)
 		if err != nil {
-			return fmt.Errorf("unable to retrieve InfluxDB password from environment: %v", err.Error())
+			return fmt.Errorf("unable to retrieve InfluxDB password from environment: %w", err)
 		}
 	}
 
@@ -47,12 +47,12 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		Password: password,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create InfluxDB client - %v", err.Error())
+		return fmt.Errorf("failed to create InfluxDB client: %w", err)
 	}
 	// ping the database to ensure we can connect
 	response_time, response, err := client.Ping(30 * time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to ping InfluxDB - %v", err.Error())
+		return fmt.Errorf("failed to ping InfluxDB: %w", err)
 	}
 	log.Info("successfully connected to InfluxDB", "response", response, "response_time", response_time)
 	s.client = client
@@ -63,7 +63,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 func (s *InfluxDBSink) WritePoints(points []Point) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
-		return fmt.Errorf("unable to create InfluxDB batch points - %v", err.Error())
+		return fmt.Errorf("unable to create InfluxDB batch points: %w", err)
 	}
 	for _, point := range points {
 		var pts []*client.Point
@@ -83,7 +83,7 @@ func (s *InfluxDBSink) WritePoints(points []Point) error {
 	// write the batch
 	err = s.client.Write(bp)
 	if err != nil {
-		return fmt.Errorf("failed to write batch of points - %v", err.Error())
+		return fmt.Errorf("failed to write batch of points: %w", err)
 	}
 	return nil
 }

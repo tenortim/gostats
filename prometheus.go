@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -38,8 +39,8 @@ type PrometheusSink struct {
 	fam map[string]*MetricFamily
 }
 
-const NAMESPACE = "isilon"
-const BASESTATNAME = "stat"
+const namespace = "isilon"
+const baseStatName = "stat"
 
 // SampleID uniquely identifies a Sample
 type SampleID string
@@ -88,7 +89,7 @@ func GetPrometheusWriter() DBWriter {
 
 // promStatBasename returns a Prometheus-style snakecase base name for the given stat name
 func promStatBasename(stat string) string {
-	return NAMESPACE + "_" + BASESTATNAME + "_" + strings.ReplaceAll(stat, ".", "_")
+	return namespace + "_" + baseStatName + "_" + strings.ReplaceAll(stat, ".", "_")
 	// XXX handle problematic naming here too
 }
 
@@ -176,7 +177,9 @@ func startPromSdListener(conf tomlConfig) error {
 	// XXX improve error handling here?
 	go func() {
 		err := http.Serve(listener, mux)
-		log.Error("HTTP SD listener exited with error", slog.String("error", err.Error()))
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("HTTP SD listener exited with error", slog.String("error", err.Error()))
+		}
 	}()
 	return nil
 }
@@ -247,7 +250,9 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 
 	registry := prometheus.NewRegistry()
 	pc.registry = registry
-	registry.Register(s)
+	if err := registry.Register(s); err != nil {
+		return fmt.Errorf("failed to register Prometheus collector: %w", err)
+	}
 
 	s.fam = make(map[string]*MetricFamily)
 
@@ -297,7 +302,6 @@ func (s *PrometheusSink) Expire() {
 	now := time.Now()
 	for name, family := range s.fam {
 		for key, sample := range family.Samples {
-			// if s.ExpirationInterval.Duration != 0 && now.After(sample.Expiration) {
 			if now.After(sample.Expiration) {
 				for k := range sample.Labels {
 					family.LabelSet[k]--
@@ -350,12 +354,6 @@ func (s *PrometheusSink) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// XXX We will use this when we convert the InfluxDB collector to use the full names
-// those names will be separated by periods, and this will convert them.
-// func sanitize(value string) string {
-// 	return invalidNameCharRE.ReplaceAllString(value, "_")
-// }
-
 // CreateSampleID creates a SampleID from the given tag map
 // The tags are sorted by key to ensure that the same set of tags always
 // produces the same SampleID
@@ -406,7 +404,7 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 	for _, point := range points {
 		promstat, ok := s.metricMap[point.name]
 		if !ok {
-			die("unable to find metric map entry for point", slog.String("point", point.name))
+			return fmt.Errorf("unable to find metric map entry for point %q", point.name)
 		}
 		if !promstat.valid {
 			log.Debug("skipping invalid stat", slog.String("stat", point.name))
@@ -449,9 +447,7 @@ func (s *PrometheusSink) WritePoints(points []Point) error {
 				case int64:
 					value = float64(v)
 				default:
-					log.Error("cannot convert field value to float64", slog.String("point", point.name), "value", v)
-					log.Error("point dump", "point", point, "field", k)
-					panic("unexpected unconvertable value")
+					return fmt.Errorf("cannot convert field %q value of type %T to float64 in point %q", k, v, point.name)
 				}
 				log.Debug("assigning metric", slog.String("metric", name), slog.Float64("value", value))
 				for tag, value := range point.tags[i] {

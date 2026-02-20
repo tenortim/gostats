@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -403,7 +404,7 @@ func (c *Cluster) GetSummaryProtocolStats() ([]SummaryStatsProtocolItem, error) 
 		errmsg := fmt.Errorf("cluster %s unable to parse protocol summary stats response %q - error %s", c, resp, err)
 		return nil, errmsg
 	}
-	if r.Errors != nil {
+	if len(r.Errors) > 0 {
 		// Theoretically, the Errors array can contain multiple entries
 		// I haven't ever seen that, so we just take the first entry here
 		apiError := r.Errors[0]
@@ -439,7 +440,7 @@ func (c *Cluster) GetSummaryClientStats() ([]SummaryStatsClientItem, error) {
 		errmsg := fmt.Errorf("cluster %s unable to parse client summary stats response %q - error %s", c, resp, err)
 		return nil, errmsg
 	}
-	if r.Errors != nil {
+	if len(r.Errors) > 0 {
 		// Theoretically, the Errors array can contain multiple entries
 		// I haven't ever seen that, so we just take the first entry here
 		apiError := r.Errors[0]
@@ -594,7 +595,7 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 			}
 			fmt.Fprintf(es, "code: %q, message: %q", eMap["code"], eMap["message"])
 		}
-		return nil, fmt.Errorf("%s", es.String())
+		return nil, errors.New(es.String())
 	}
 
 	var keys any
@@ -663,7 +664,6 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 			return nil, fmt.Errorf("parseStatInfo: unexpected type for aggregation_type field")
 		}
 		detail.aggType = aggType
-		// key := kMap["key"]
 	}
 
 	detail.valid = true

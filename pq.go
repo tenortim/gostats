@@ -70,11 +70,3 @@ func (pq *PriorityQueue) Pop() any {
 	return item
 }
 
-/*
-// update modifies the priority and value of an Item in the queue.
-func (pq *PriorityQueue) update(item *Item, value statTimeSet, priority time.Time) {
-	item.value = value
-	item.priority = priority
-	heap.Fix(pq, item.index)
-}
-*/
