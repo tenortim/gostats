@@ -355,33 +355,29 @@ func TestDecodeStat_IRP_Elision(t *testing.T) {
 // Test DecodeStat with nil value
 func TestDecodeStat_NilValue(t *testing.T) {
 	setMemoryBackend()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected panic for nil value")
-		}
-	}()
 	stat := StatResult{
 		Key:   "stat_error",
 		Devid: 0,
 		Value: nil,
 	}
-	DecodeStat("clusterE", stat, false, false)
+	_, _, err := DecodeStat("clusterE", stat, false, false)
+	if err == nil {
+		t.Errorf("expected error for nil value")
+	}
 }
 
-// Test DecodeStat with unknown value type (should panic)
+// Test DecodeStat with unknown value type (should return error)
 func TestDecodeStat_UnknownType(t *testing.T) {
 	setMemoryBackend()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected panic for unknown value type")
-		}
-	}()
 	stat := StatResult{
 		Key:   "stat6",
 		Devid: 0,
 		Value: errors.New("bad type"),
 	}
-	DecodeStat("clusterF", stat, true, false)
+	_, _, err := DecodeStat("clusterF", stat, true, false)
+	if err == nil {
+		t.Errorf("expected error for unknown value type")
+	}
 }
 
 // Test isInvalidStat for change_notify and read_directory_change
