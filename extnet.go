@@ -81,6 +81,7 @@ func findExternalAddr() (string, error) {
 	for _, ip := range ips {
 		if IsIPv4(ip.String()) {
 			listenAddr = ip.String()
+			break
 		}
 	}
 	if listenAddr == "" {

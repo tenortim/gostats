@@ -279,14 +279,14 @@ func (c *Cluster) Authenticate() error {
 	defer resp.Body.Close()
 	// 201(StatusCreated) is success
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Authenticate: auth failed - %s", resp.Status)
+		return fmt.Errorf("auth failed: %s", resp.Status)
 	}
 	// parse out time limit so we can reauth when necessary
 	dec := json.NewDecoder(resp.Body)
 	var ar map[string]any
 	err = dec.Decode(&ar)
 	if err != nil {
-		return fmt.Errorf("Authenticate: unable to parse auth response - %s", err)
+		return fmt.Errorf("unable to parse auth response: %s", err)
 	}
 	// drain any other output
 	io.Copy(io.Discard, resp.Body)
@@ -338,20 +338,20 @@ func (c *Cluster) GetClusterConfig() error {
 	}
 	m, ok := v.(map[string]any)
 	if !ok {
-		return fmt.Errorf("GetClusterConfig: unexpected JSON structure for cluster config")
+		return fmt.Errorf("unexpected JSON structure for cluster config")
 	}
 	version, ok := m["onefs_version"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("GetClusterConfig: unexpected type for onefs_version field")
+		return fmt.Errorf("unexpected type for onefs_version field")
 	}
 	rel, ok := version["version"].(string)
 	if !ok {
-		return fmt.Errorf("GetClusterConfig: unexpected type for version field")
+		return fmt.Errorf("unexpected type for version field")
 	}
 	c.OSVersion = rel
 	name, ok := m["name"].(string)
 	if !ok {
-		return fmt.Errorf("GetClusterConfig: unexpected type for name field")
+		return fmt.Errorf("unexpected type for name field")
 	}
 	if c.PreserveCase {
 		c.ClusterName = name
@@ -364,17 +364,16 @@ func (c *Cluster) GetClusterConfig() error {
 // Connect establishes the initial network connection to the cluster,
 // then pulls the cluster config info to get the real cluster name
 func (c *Cluster) Connect() error {
-	var err error
-	if err = c.initialize(); err != nil {
-		return err
+	if err := c.initialize(); err != nil {
+		return fmt.Errorf("initialize: %w", err)
 	}
 	if c.AuthType == authtypeSession {
-		if err = c.Authenticate(); err != nil {
-			return err
+		if err := c.Authenticate(); err != nil {
+			return fmt.Errorf("authenticate: %w", err)
 		}
 	}
-	if err = c.GetClusterConfig(); err != nil {
-		return err
+	if err := c.GetClusterConfig(); err != nil {
+		return fmt.Errorf("get cluster config: %w", err)
 	}
 	return nil
 }
@@ -528,6 +527,9 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 		errmsg := fmt.Errorf("unable to parse current stats endpoint result: %s", res)
 		return nil, errmsg
 	}
+	if len(errors) == 0 {
+		return nil, fmt.Errorf("stats endpoint returned unparseable response: %s", res)
+	}
 	// Theoretically, the Errors array can contain multiple entries
 	// I haven't ever seen that, so we just take the first entry here
 	apiError := errors[0]
@@ -577,7 +579,7 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 
 	m, ok := v.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("parseStatInfo: unexpected JSON structure")
+		return nil, fmt.Errorf("unexpected JSON structure")
 	}
 	// Did the API throw an error?
 	if ea, ok := m["errors"]; ok {
@@ -585,13 +587,13 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		// I've never seen more than one error in the array, but we handle it anyway
 		eaSlice, ok := ea.([]any)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for errors field")
+			return nil, fmt.Errorf("unexpected type for errors field")
 		}
-		es := bytes.NewBufferString("Error: ")
+		es := bytes.NewBufferString("error: ")
 		for _, e := range eaSlice {
 			eMap, ok := e.(map[string]any)
 			if !ok {
-				return nil, fmt.Errorf("parseStatInfo: unexpected type for error entry")
+				return nil, fmt.Errorf("unexpected type for error entry")
 			}
 			fmt.Fprintf(es, "code: %q, message: %q", eMap["code"], eMap["message"])
 		}
@@ -605,13 +607,13 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 	}
 	ka, ok := keys.([]any)
 	if !ok {
-		return nil, fmt.Errorf("parseStatInfo: unexpected type for keys field")
+		return nil, fmt.Errorf("unexpected type for keys field")
 	}
 	for _, k := range ka {
 		// pull info from key
 		kMap, ok := k.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for key entry")
+			return nil, fmt.Errorf("unexpected type for key entry")
 		}
 		// Extract stat update times out of "policies" if they exist
 		kp := kMap["policies"]
@@ -621,18 +623,18 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		} else {
 			kpa, ok := kp.([]any)
 			if !ok {
-				return nil, fmt.Errorf("parseStatInfo: unexpected type for policies field")
+				return nil, fmt.Errorf("unexpected type for policies field")
 			}
 			for _, pol := range kpa {
 				polMap, ok := pol.(map[string]any)
 				if !ok {
-					return nil, fmt.Errorf("parseStatInfo: unexpected type for policy entry")
+					return nil, fmt.Errorf("unexpected type for policy entry")
 				}
 				// we only want the current info, not the historical
 				if polMap["persistent"] == false {
 					intvl, ok := polMap["interval"].(float64)
 					if !ok {
-						return nil, fmt.Errorf("parseStatInfo: unexpected type for interval field")
+						return nil, fmt.Errorf("unexpected type for interval field")
 					}
 					detail.updateIntvl = intvl
 					break
@@ -641,27 +643,27 @@ func parseStatInfo(res []byte) (*statDetail, error) {
 		}
 		description, ok := kMap["description"].(string)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for description field")
+			return nil, fmt.Errorf("unexpected type for description field")
 		}
 		detail.description = description
 		units, ok := kMap["units"].(string)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for units field")
+			return nil, fmt.Errorf("unexpected type for units field")
 		}
 		detail.units = units
 		scope, ok := kMap["scope"].(string)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for scope field")
+			return nil, fmt.Errorf("unexpected type for scope field")
 		}
 		detail.scope = scope
 		datatype, ok := kMap["type"].(string)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for type field")
+			return nil, fmt.Errorf("unexpected type for type field")
 		}
 		detail.datatype = datatype
 		aggType, ok := kMap["aggregation_type"].(string)
 		if !ok {
-			return nil, fmt.Errorf("parseStatInfo: unexpected type for aggregation_type field")
+			return nil, fmt.Errorf("unexpected type for aggregation_type field")
 		}
 		detail.aggType = aggType
 	}
@@ -728,9 +730,8 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 					return nil, err
 				}
 				continue
-				// TODO handle repeated auth failures to avoid panic
 			}
-			return nil, fmt.Errorf("Cluster %s returned unexpected HTTP response: %v", c, resp.Status)
+			return nil, fmt.Errorf("cluster %s returned unexpected HTTP response: %v", c, resp.Status)
 		}
 		// assert err != nil
 		// TODO - consider adding more retryable cases e.g. temporary DNS hiccup
@@ -749,7 +750,7 @@ func (c *Cluster) restGet(endpoint string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Cluster %s returned unexpected HTTP response: %v", c, resp.Status)
+		return nil, fmt.Errorf("cluster %s returned unexpected HTTP response: %v", c, resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	return body, err

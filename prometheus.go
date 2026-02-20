@@ -368,11 +368,14 @@ func CreateSampleID(tags map[string]string) SampleID {
 
 // addSample adds the given Sample to the MetricFamily, updating the LabelSet as required
 func addSample(fam *MetricFamily, sample *Sample, sampleID SampleID) {
-
+	if old, ok := fam.Samples[sampleID]; ok {
+		for k := range old.Labels {
+			fam.LabelSet[k]--
+		}
+	}
 	for k := range sample.Labels {
 		fam.LabelSet[k]++
 	}
-
 	fam.Samples[sampleID] = sample
 }
 

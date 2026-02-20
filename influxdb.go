@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	client "github.com/influxdata/influxdb1-client/v2"
@@ -41,7 +42,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		}
 	}
 
-	client, err := client.NewHTTPClient(client.HTTPConfig{
+	dbClient, err := client.NewHTTPClient(client.HTTPConfig{
 		Addr:     url,
 		Username: username,
 		Password: password,
@@ -50,12 +51,12 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		return fmt.Errorf("failed to create InfluxDB client: %w", err)
 	}
 	// ping the database to ensure we can connect
-	response_time, response, err := client.Ping(30 * time.Second)
+	response_time, response, err := dbClient.Ping(30 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to ping InfluxDB: %w", err)
 	}
 	log.Info("successfully connected to InfluxDB", "response", response, "response_time", response_time)
-	s.client = client
+	s.client = dbClient
 	return nil
 }
 
@@ -71,7 +72,7 @@ func (s *InfluxDBSink) WritePoints(points []Point) error {
 			var pt *client.Point
 			pt, err = client.NewPoint(point.name, point.tags[i], f, time.Unix(point.time, 0).UTC())
 			if err != nil {
-				log.Warn("failed to create point", "measurement", point)
+				log.Warn("failed to create point", slog.String("measurement", point.name))
 				continue
 			}
 			pts = append(pts, pt)

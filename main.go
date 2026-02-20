@@ -308,7 +308,6 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			index:    i,
 		}
 		pq = append(pq, &item)
-		i++
 	}
 	heap.Init(&pq)
 

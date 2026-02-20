@@ -36,7 +36,7 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	}
 	token, err = secretFromEnv(token)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve InfluxDBv2 token from environment: %v", err.Error())
+		return fmt.Errorf("unable to retrieve InfluxDBv2 token from environment: %w", err)
 	}
 	client := influxdb2.NewClient(url, token)
 	
