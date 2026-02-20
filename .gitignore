@@ -3,3 +3,4 @@ gostats.exe
 gostats.log
 .vscode
 *.code-workspace
+.claude/settings.local.json
