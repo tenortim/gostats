@@ -9,8 +9,10 @@ import (
 // https://golang.org/pkg/container/heap/#example__priorityQueue
 // Just a few name changes
 
+// StatType identifies the kind of stat stored in a priority queue item.
 type StatType int
 
+// Stat type constants for use with the priority queue.
 const (
 	StatTypeRegularStat StatType = iota
 	StatTypeSummaryStatProtocol

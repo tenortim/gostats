@@ -9,6 +9,7 @@ import (
 	slogmulti "github.com/samber/slog-multi"
 )
 
+// Log levels extending the standard slog levels.
 const (
 	LevelTrace    = slog.Level(-8)
 	LevelDebug    = slog.LevelDebug

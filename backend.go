@@ -25,9 +25,9 @@ type ptFields map[string]any
 // ptTags maps the tags for a given instance of a metric to their values
 type ptTags map[string]string
 
-// DecodeProtocolSummaryStat takes a SummaryStatsProtocolItem and decodes it into
+// decodeProtocolSummaryStat takes a SummaryStatsProtocolItem and decodes it into
 // fields and tags usable by the back end writers.
-func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (ptFields, ptTags) {
+func decodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (ptFields, ptTags) {
 	tags := ptTags{"cluster": cluster}
 	fields := make(ptFields)
 	if pss.Node != nil {
@@ -56,9 +56,9 @@ func DecodeProtocolSummaryStat(cluster string, pss SummaryStatsProtocolItem) (pt
 	return fields, tags
 }
 
-// DecodeClientSummaryStat takes a SummaryStatsClientItem and decodes it into
+// decodeClientSummaryStat takes a SummaryStatsClientItem and decodes it into
 // fields and tags usable by the back end writers.
-func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFields, ptTags) {
+func decodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFields, ptTags) {
 	tags := ptTags{"cluster": cluster}
 	fields := make(ptFields)
 	if css.Node != nil {
@@ -92,9 +92,9 @@ func DecodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 	return fields, tags
 }
 
-// DecodeStat takes the JSON result from the OneFS statistics API and breaks it
+// decodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
-func DecodeStat(cluster string, stat StatResult, includeDegraded bool, degraded bool) ([]ptFields, []ptTags, error) {
+func decodeStat(cluster string, stat StatResult, includeDegraded bool, degraded bool) ([]ptFields, []ptTags, error) {
 	var initialTags ptTags
 	clusterStatTags := ptTags{"cluster": cluster}
 	nodeStatTags := ptTags{"cluster": cluster}
@@ -280,7 +280,7 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 			log.Error("Stat returned unknown error code - skipping", slog.String("cluster", c.ClusterName), slog.String("stat", stat.Key), slog.Int("error_code", stat.ErrorCode), slog.String("error", stat.ErrorString))
 			continue
 		}
-		fa, ta, err := DecodeStat(c.ClusterName, stat, gc.IncludeDegraded, degraded)
+		fa, ta, err := decodeStat(c.ClusterName, stat, gc.IncludeDegraded, degraded)
 		if err != nil {
 			return fmt.Errorf("failed to decode stat %s: %w", stat.Key, err)
 		}

@@ -51,11 +51,11 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 		return fmt.Errorf("failed to create InfluxDB client: %w", err)
 	}
 	// ping the database to ensure we can connect
-	response_time, response, err := dbClient.Ping(30 * time.Second)
+	responseTime, response, err := dbClient.Ping(30 * time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to ping InfluxDB: %w", err)
 	}
-	log.Info("successfully connected to InfluxDB", "response", response, "response_time", response_time)
+	log.Info("successfully connected to InfluxDB", "response", response, "response_time", responseTime)
 	s.client = dbClient
 	return nil
 }

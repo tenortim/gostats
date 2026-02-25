@@ -196,7 +196,7 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", description)
 }
 
-// Connect() sets up the HTTP server and handlers for Prometheus
+// Connect sets up the HTTP server and handlers for Prometheus
 func (p *PrometheusClient) Connect() error {
 	addr := fmt.Sprintf(":%d", p.ListenPort)
 

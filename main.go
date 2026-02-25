@@ -380,7 +380,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 				for i, stat := range ssp {
 					var fa []ptFields
 					var ta []ptTags
-					fields, tags := DecodeProtocolSummaryStat(c.ClusterName, stat)
+					fields, tags := decodeProtocolSummaryStat(c.ClusterName, stat)
 					fa = append(fa, fields)
 					ta = append(ta, tags)
 					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
@@ -405,7 +405,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 				for i, stat := range ssc {
 					var fa []ptFields
 					var ta []ptTags
-					fields, tags := DecodeClientSummaryStat(c.ClusterName, stat)
+					fields, tags := decodeClientSummaryStat(c.ClusterName, stat)
 					fa = append(fa, fields)
 					ta = append(ta, tags)
 					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}

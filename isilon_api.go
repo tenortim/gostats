@@ -110,13 +110,13 @@ const maxTimeoutSecs = 1800 // clamp retry timeout to 30 minutes
 // which returns an array of protocol summary stats or an array of errors
 type SummaryStatsProtocol struct {
 	// A list of errors that may be returned.
-	Errors []ApiError `json:"errors,omitempty"`
+	Errors []APIError `json:"errors,omitempty"`
 	// or the array of summary stats
 	Protocol []SummaryStatsProtocolItem `json:"protocol,omitempty"`
 }
 
-// An object describing a single error.
-type ApiError struct {
+// APIError describes a single error.
+type APIError struct {
 	Code    string  `json:"code"`            // The error code.
 	Field   *string `json:"field,omitempty"` // The field with the error if applicable.
 	Message string  `json:"message"`         // The error message.
@@ -152,7 +152,7 @@ type SummaryStatsProtocolItem struct {
 // which returns an array of client summary stats or an array of errors
 type SummaryStatsClient struct {
 	// A list of errors that may be returned.
-	Errors []ApiError `json:"errors,omitempty"`
+	Errors []APIError `json:"errors,omitempty"`
 	// or the array of summary stats
 	Client []SummaryStatsClientItem `json:"client,omitempty"`
 }
@@ -521,7 +521,7 @@ func parseStatResult(res []byte) ([]StatResult, error) {
 	if err == nil {
 		return sa.Stats, nil
 	}
-	var errors []ApiError
+	var errors []APIError
 	err = json.Unmarshal(res, &errors)
 	if err != nil {
 		errmsg := fmt.Errorf("unable to parse current stats endpoint result: %s", res)
