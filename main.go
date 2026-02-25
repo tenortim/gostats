@@ -14,7 +14,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.33"
+const Version = "0.34"
 const userAgent = "gostats/" + Version
 
 const (
@@ -87,7 +87,6 @@ func main() {
 	// Determine which stats to poll
 	log.Info("Parsing stat groups and stats")
 	sg := parseStatConfig(conf)
-
 
 	// ugly, but we have to do this here since it's global, not a per-cluster
 	if conf.Global.Processor == promPluginName && conf.PromSD.Enabled {

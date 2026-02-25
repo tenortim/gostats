@@ -4,3 +4,6 @@ build:
 
 test:
 	go test -v ./...
+
+release:
+	goreleaser release --clean
