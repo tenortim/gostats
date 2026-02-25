@@ -144,7 +144,7 @@ func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 ]`
-	w.Write([]byte(sdstr1 + listenAddrs + sdstr2))
+	_, _ = w.Write([]byte(sdstr1 + listenAddrs + sdstr2))
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
@@ -193,7 +193,7 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`
 
-	fmt.Fprintf(w, "%s", description)
+	_, _ = fmt.Fprintf(w, "%s", description)
 }
 
 // Connect sets up the HTTP server and handlers for Prometheus

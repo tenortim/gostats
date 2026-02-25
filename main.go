@@ -436,7 +436,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]statDetail) []statTimeSet {
 	stm := make(map[time.Duration][]string)
 	for group := range sg {
-		absTime := sg[group].sgRefresh.absTime
+		absTime := sg[group].absTime
 		if absTime != 0 {
 			// these were already clamped to no less than the minimum in the
 			// global config parsing so nothing to do here
@@ -444,7 +444,7 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 			stm[d] = append(stm[d], sg[group].stats...)
 			continue
 		}
-		multiplier := sg[group].sgRefresh.multiplier
+		multiplier := sg[group].multiplier
 		if multiplier == 0 {
 			die("logic error: both multiplier and absTime are zero")
 		}
