@@ -127,24 +127,24 @@ type httpSdConf struct {
 
 // ServeHTTP implements the http.Handler interface for the Prometheus HTTP SD handler
 func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var listenAddrs string
 	w.Header().Set("Content-Type", "application/json")
-	sdstr1 := `[
+	var sb strings.Builder
+	sb.WriteString(`[
 	{
-		"targets": [`
+		"targets": [`)
 	for i, port := range h.ListenPorts {
 		if i != 0 {
-			listenAddrs += ", "
+			sb.WriteString(", ")
 		}
-		listenAddrs += fmt.Sprintf("\"%s:%d\"", h.ListenIP, port)
+		fmt.Fprintf(&sb, "\"%s:%d\"", h.ListenIP, port)
 	}
-	sdstr2 := `],
+	sb.WriteString(`],
 		"labels": {
 			"__meta_prometheus_job": "isilon_stats"
 		}
 	}
-]`
-	_, _ = w.Write([]byte(sdstr1 + listenAddrs + sdstr2))
+]`)
+	_, _ = w.Write([]byte(sb.String()))
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
@@ -222,7 +222,7 @@ func (p *PrometheusClient) Connect() error {
 		} else {
 			err = p.server.Serve(listener)
 		}
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("error creating prometheus metric endpoint", slog.String("error", err.Error()))
 		}
 	}()

@@ -384,15 +384,15 @@ func TestDecodeStat_UnknownType(t *testing.T) {
 func TestIsInvalidStat(t *testing.T) {
 	setMemoryBackend()
 	tags := ptTags{"op_name": "change_notify"}
-	if !isInvalidStat(&tags) {
+	if !isInvalidStat(tags) {
 		t.Errorf("expected true for change_notify")
 	}
 	tags = ptTags{"op_name": "read_directory_change"}
-	if !isInvalidStat(&tags) {
+	if !isInvalidStat(tags) {
 		t.Errorf("expected true for read_directory_change")
 	}
 	tags = ptTags{"op_name": "other"}
-	if isInvalidStat(&tags) {
+	if isInvalidStat(tags) {
 		t.Errorf("expected false for other")
 	}
 }

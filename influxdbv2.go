@@ -45,7 +45,7 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	defer cancel()
 	ok, err := client.Ping(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to ping InfluxDBv2 - %v", err.Error())
+		return fmt.Errorf("failed to ping InfluxDBv2: %w", err)
 	}
 	if !ok {
 		return fmt.Errorf("InfluxDBv2 ping failed - server not reachable")

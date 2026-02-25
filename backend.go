@@ -207,7 +207,7 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 		if simple {
 			// We had a simple map with no sub-arrays, so just return the single set of fields and tags
 			log.Debug("decoded simple map", "fields", fields, "tags", tags)
-			if isInvalidStat(&tags) {
+			if isInvalidStat(tags) {
 				log.Debug("dropping broken change_notify stat", slog.String("cluster", baseTags["cluster"]))
 			} else {
 				mfa = append(mfa, fields)
@@ -224,7 +224,7 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 				// merge the base fields and tags into the sub ones
 				maps.Copy(f, subfields[i])
 				maps.Copy(t, subtags[i])
-				if isInvalidStat(&t) {
+				if isInvalidStat(t) {
 					log.Debug("dropping broken change_notify stat", slog.String("cluster", baseTags["cluster"]))
 				} else {
 					mfa = append(mfa, f)
@@ -244,8 +244,8 @@ func decodeValue(statname string, fieldname string, v any, baseTags ptTags, dept
 //
 // Some statistics (specifically, SMB change notify) have unusual semantics that can result in
 // misleadingly large latency values.
-func isInvalidStat(tags *ptTags) bool {
-	if (*tags)["op_name"] == "change_notify" || (*tags)["op_name"] == "read_directory_change" {
+func isInvalidStat(tags ptTags) bool {
+	if tags["op_name"] == "change_notify" || tags["op_name"] == "read_directory_change" {
 		return true
 	}
 	return false
