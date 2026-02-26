@@ -1,6 +1,68 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.35 Thu Feb 26 14:40:00 2026 -0800
+
+### New Features
+
+- Add graceful shutdown on SIGTERM and SIGINT
+  - The collector now handles SIGTERM and SIGINT (Ctrl-C) gracefully. On receipt of either signal, in-flight operations are allowed to complete and all goroutines exit cleanly.
+  - Prometheus HTTP metric endpoints are shut down gracefully on exit.
+  - Context cancellation errors are no longer logged as errors during shutdown.
+
+### Changes
+
+- Propagate `context.Context` throughout all layers
+  - `context.Context` is now passed as the first argument through all API, backend, and database writer functions. All `time.Sleep` calls in retry loops have been replaced with context-aware `select` statements so they respond promptly to cancellation.
+  - The `DBWriter` interface is updated: both `Init()` and `WritePoints()` now accept a `context.Context` as their first argument. Custom backends will need to be updated.
+- Simplify `isConnectionRefused` error detection
+  - Replaced a fragile three-level type-assertion chain with `errors.Is(err, syscall.ECONNREFUSED)`.
+- Raise "shutting down stats collection" log message level from INFO to NOTICE
+
+## 0.34 Wed Feb 25 11:15:15 2026 -0800
+
+### New Features
+
+- Add goreleaser support for automated release builds
+
+### Bug Fixes
+
+- Fix golangci-lint and golint issues
+- Fix issues identified in Go code review
+
+## 0.33 Wed Feb 25 06:42:30 2026 -0800
+
+### New Features
+
+- Add startup ping check for InfluxDB v1
+  - The collector now validates connectivity to the InfluxDB v1 endpoint at startup and exits with an error if the ping fails.
+- Add startup ping check for InfluxDB v2
+  - The collector now validates connectivity to the InfluxDB v2 endpoint at startup and exits with an error if the ping fails.
+
+### Bug Fixes
+
+- Fix GetStats batch-splitting logic
+  - Stats that exceeded the per-request batch limit were not being split correctly, causing some stats to be silently skipped.
+- Fix bugs, remove dead code, and improve robustness
+- Fix naming, dead code, and minor correctness issues
+- Fix code review issues: correctness, error handling, and style
+- Fix golint issues: naming, comments, and unexported types
+- Update tests to expect error returns instead of panics
+
+## 0.32 Mon Jan 12 07:57:13 2026 -0800
+
+### Changes
+
+- Make the `degraded` tag optional (default: off)
+  - The `degraded` tag added in v0.30 is now opt-in via the `include_degraded` boolean in the `[global]` config section. It defaults to `false` to avoid unnecessary tag cardinality for deployments that do not need it.
+- Update CI workflow to use Go 1.24
+
+### Bug Fixes
+
+- Fix Windows build failure introduced by earlier changes
+- Add missing `StatErrorTimeout` error code
+  - The `timeout` error code returned by the OneFS stats API was not handled, causing unexpected stat collection failures.
+
 ## 0.31 Tue Dec 9 12:28:46 2025 -0800
 
 > [!IMPORTANT]
