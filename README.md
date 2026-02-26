@@ -39,10 +39,12 @@ The current version of gostats requires Golang version **1.24** or higher to bui
     (nohup ./gostats &)
     ```
 
+* To stop the connector gracefully, send SIGTERM or SIGINT (Ctrl-C). In-flight operations are allowed to complete before the process exits.
+
 * If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanza. This will spawn a Prometheus HTTP metrics listener on the configured port.
 
 Additional config notes:
-* The config file must be versioned (see the example config). Current collector versions accept config versions 0.31 and 0.32.
+* The config file must be versioned (see the example config). Current collector versions accept config versions 0.31 through 0.35.
 * Password/token fields may reference environment variables by using the `$env:VARNAME` prefix in the TOML; gostats will replace it at runtime.
 ## Customizing the connector
 
@@ -64,17 +66,17 @@ The connector is designed to allow for customization via a plugin architecture. 
   * a function with signature
 
     ```go
-    func (s *InfluxDBSink) Init(clustername string, config *tomlConfig, ci int, sd map[string]statDetail) error
+    func (s *InfluxDBSink) Init(ctx context.Context, clustername string, config *tomlConfig, ci int, sd map[string]statDetail) error
     ```
 
-    that takes as input the name/ip-address of a cluster, the global config, the index into the config.Clusters struct for this cluster, and a map of all of the configured stats, and which initializes the receiver.
+    that takes as input a context, the name/ip-address of a cluster, the global config, the index into the config.Clusters struct for this cluster, and a map of all of the configured stats, and which initializes the receiver.
   * Also define a point-writing function with the following signature:
 
     ```go
-    func (s *InfluxDBSink) WritePoints(points []Point) error
+    func (s *InfluxDBSink) WritePoints(ctx context.Context, points []Point) error
     ```
 
-    Point is defined in backend.go
+    `Point` is defined in `backend.go`. Both methods must accept a `context.Context` as their first argument; the context is cancelled when the collector is shutting down, so long-running operations should respect it.
 
 * Add the my_plugin.go file to the source directory.
 * Add code to getDBWriter() in main.go to recognize your new backend.
