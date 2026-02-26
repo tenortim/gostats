@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -297,7 +298,9 @@ func (c *Cluster) WriteStats(ctx context.Context, gc globalConfig, ss DBWriter, 
 		if err == nil {
 			break
 		}
-		log.Error("failed writing to back end database", slog.String("error", err.Error()), slog.Int("retry count", i), slog.Duration("retry time", retryTime))
+		if !errors.Is(err, context.Canceled) {
+			log.Error("failed writing to back end database", slog.String("error", err.Error()), slog.Int("retry count", i), slog.Duration("retry time", retryTime))
+		}
 		select {
 		case <-time.After(retryTime):
 		case <-ctx.Done():

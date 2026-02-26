@@ -395,7 +395,9 @@ func (c *Cluster) GetSummaryProtocolStats(ctx context.Context) ([]SummaryStatsPr
 	log.Info("fetching protocol summary stats", slog.String("cluster", c.String()))
 	resp, err := c.restGet(ctx, path)
 	if err != nil {
-		log.Error("failed to get protocol summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		if !errors.Is(err, context.Canceled) {
+			log.Error("failed to get protocol summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		}
 		// TODO investigate handling partial errors rather than totally failing?
 		return nil, err
 	}
@@ -431,7 +433,9 @@ func (c *Cluster) GetSummaryClientStats(ctx context.Context) ([]SummaryStatsClie
 	log.Info("fetching client summary stats", slog.String("cluster", c.String()))
 	resp, err := c.restGet(ctx, path)
 	if err != nil {
-		log.Error("failed to get client summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		if !errors.Is(err, context.Canceled) {
+			log.Error("failed to get client summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		}
 		// TODO investigate handling partial errors rather than totally failing?
 		return nil, err
 	}
@@ -475,7 +479,9 @@ func (c *Cluster) GetStats(ctx context.Context, stats []string) ([]StatResult, e
 			log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
 			resp, err := c.restGet(ctx, buffer.String())
 			if err != nil {
-				log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+				if !errors.Is(err, context.Canceled) {
+					log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+				}
 				// TODO investigate handling partial errors rather than totally failing?
 				return nil, err
 			}
@@ -499,7 +505,9 @@ func (c *Cluster) GetStats(ctx context.Context, stats []string) ([]StatResult, e
 	log.Debug("sending request", slog.String("cluster", c.String()), slog.String("request", buffer.String()))
 	resp, err := c.restGet(ctx, buffer.String())
 	if err != nil {
-		log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		if !errors.Is(err, context.Canceled) {
+			log.Error("failed to get stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		}
 		return nil, err
 	}
 	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
@@ -552,7 +560,9 @@ func (c *Cluster) fetchStatDetails(ctx context.Context, sg map[string]statGroup)
 			path := statInfoPath + stat
 			resp, err := c.restGet(ctx, path)
 			if err != nil {
-				log.Warn("failed to retrieve information for stat - removing", slog.String("cluster", c.String()), slog.String("stat", stat), slog.String("error", err.Error()))
+				if !errors.Is(err, context.Canceled) {
+					log.Warn("failed to retrieve information for stat - removing", slog.String("cluster", c.String()), slog.String("stat", stat), slog.String("error", err.Error()))
+				}
 				statInfo[stat] = badStat
 				continue
 			}
