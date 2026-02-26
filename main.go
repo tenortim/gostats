@@ -341,7 +341,7 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 			select {
 			case <-time.After(nextTime.Sub(curTime)):
 			case <-ctx.Done():
-				log.Info("shutting down stats collection", slog.String("cluster", c.ClusterName))
+				log.Log(ctx, LevelNotice, "shutting down stats collection", slog.String("cluster", c.ClusterName))
 				return
 			}
 		}
@@ -370,7 +370,7 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 				select {
 				case <-time.After(retryTime):
 				case <-ctx.Done():
-					log.Info("shutting down stats collection", slog.String("cluster", c.ClusterName))
+					log.Log(ctx, LevelNotice, "shutting down stats collection", slog.String("cluster", c.ClusterName))
 					return
 				}
 				if retryTime < maxRetryTime {
