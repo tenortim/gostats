@@ -71,14 +71,14 @@ type MetricFamily struct {
 
 // createListener creates a net.Listener with SO_REUSEADDR and SO_REUSEPORT set
 // on the listening socket.
-func createListener(addr string) (net.Listener, error) {
+func createListener(ctx context.Context, addr string) (net.Listener, error) {
 	// Create Listener Config
 	lc := net.ListenConfig{
 		Control: Control,
 	}
 
 	// Start Listener
-	l, err := lc.Listen(context.Background(), "tcp", addr)
+	l, err := lc.Listen(ctx, "tcp", addr)
 	return l, err
 }
 
@@ -148,7 +148,7 @@ func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
-func startPromSdListener(conf tomlConfig) error {
+func startPromSdListener(ctx context.Context, conf tomlConfig) error {
 	var listenAddr string
 	var err error
 	listenAddr = conf.PromSD.ListenAddr
@@ -169,17 +169,23 @@ func startPromSdListener(conf tomlConfig) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", &h)
 	addr := fmt.Sprintf(":%d", conf.PromSD.SDport)
-	listener, err := createListener(addr)
+	listener, err := createListener(ctx, addr)
 	if err != nil {
 		return fmt.Errorf("error creating listener for Prometheus HTTP SD: %w", err)
 	}
 	log.Info("Starting Prometheus HTTP SD listener", slog.String("address", addr))
-	// XXX improve error handling here?
+	sdServer := &http.Server{Handler: mux}
 	go func() {
-		err := http.Serve(listener, mux)
+		err := sdServer.Serve(listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("HTTP SD listener exited with error", slog.String("error", err.Error()))
 		}
+	}()
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = sdServer.Shutdown(shutdownCtx)
 	}()
 	return nil
 }
@@ -197,7 +203,7 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 }
 
 // Connect sets up the HTTP server and handlers for Prometheus
-func (p *PrometheusClient) Connect() error {
+func (p *PrometheusClient) Connect(ctx context.Context) error {
 	addr := fmt.Sprintf(":%d", p.ListenPort)
 
 	mux := http.NewServeMux()
@@ -210,7 +216,7 @@ func (p *PrometheusClient) Connect() error {
 		Handler: mux,
 	}
 
-	listener, err := createListener(addr)
+	listener, err := createListener(ctx, addr)
 	if err != nil {
 		return fmt.Errorf("error creating listener for Prometheus client: %w", err)
 	}
@@ -226,12 +232,18 @@ func (p *PrometheusClient) Connect() error {
 			log.Error("error creating prometheus metric endpoint", slog.String("error", err.Error()))
 		}
 	}()
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = p.server.Shutdown(shutdownCtx)
+	}()
 
 	return nil
 }
 
 // Init initializes an PrometheusSink so that points can be written
-func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd map[string]statDetail) error {
+func (s *PrometheusSink) Init(ctx context.Context, clusterName string, config *tomlConfig, ci int, sd map[string]statDetail) error {
 	s.cluster = clusterName
 	promconf := config.Prometheus
 	port := config.Clusters[ci].PrometheusPort
@@ -281,7 +293,7 @@ func (s *PrometheusSink) Init(clusterName string, config *tomlConfig, ci int, sd
 	s.metricMap = metricMap
 
 	// Set up http server here
-	return pc.Connect()
+	return pc.Connect(ctx)
 }
 
 // Description provides a description of this sink
@@ -397,7 +409,7 @@ func (s *PrometheusSink) addMetricFamily(sample *Sample, mname string, desc stri
 }
 
 // WritePoints writes a batch of points to Prometheus
-func (s *PrometheusSink) WritePoints(points []Point) error {
+func (s *PrometheusSink) WritePoints(_ context.Context, points []Point) error {
 	// Currently only one thread writing at any one time, but let's protect ourselves
 	s.Lock()
 	defer s.Unlock()

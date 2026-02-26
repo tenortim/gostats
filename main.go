@@ -7,14 +7,16 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
 // Version is the released program version
-const Version = "0.34"
+const Version = "0.35"
 const userAgent = "gostats/" + Version
 
 const (
@@ -42,15 +44,13 @@ type statGroup struct {
 	stats []string
 }
 
-var ctx = context.Background()
-
 // debugging flags
 var checkStatReturn = flag.Bool("check-stat-return",
 	false,
 	"Verify that the api returns results for every stat requested")
 
 func die(msg string, args ...any) {
-	log.Log(ctx, LevelFatal, msg, args...)
+	log.Log(context.Background(), LevelFatal, msg, args...)
 	os.Exit(1)
 }
 
@@ -75,6 +75,10 @@ func main() {
 	// set up logging
 	setupLogging(conf.Logging, *logLevel, *logFileName)
 
+	// create a context that is cancelled on SIGTERM or SIGINT
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
 	// announce ourselves
 	log.Log(ctx, LevelNotice, "Starting gostats", slog.String("version", Version))
 
@@ -90,7 +94,7 @@ func main() {
 
 	// ugly, but we have to do this here since it's global, not a per-cluster
 	if conf.Global.Processor == promPluginName && conf.PromSD.Enabled {
-		if err := startPromSdListener(conf); err != nil {
+		if err := startPromSdListener(ctx, conf); err != nil {
 			log.Error("Failed to start Prometheus SD listener", slog.String("error", err.Error()))
 		}
 	}
@@ -106,7 +110,7 @@ func main() {
 		go func(ci int, cl clusterConf) {
 			log.Info("spawning collection loop", slog.String("cluster", cl.Hostname))
 			defer wg.Done()
-			statsloop(&conf, ci, sg)
+			statsloop(ctx, &conf, ci, sg)
 			log.Info("collection loop ended", slog.String("cluster", cl.Hostname))
 		}(ci, cl)
 	}
@@ -214,7 +218,7 @@ type statTimeSet struct {
 // it connects to the cluster, determines the stats to collect and their
 // collection intervals, and then enters a loop collecting and writing
 // stats to the backend database
-func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
+func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]statGroup) {
 	var err error
 	var password string
 	var ss DBWriter // ss = stats sink
@@ -261,14 +265,14 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		maxRetries:   gc.MaxRetries,
 		PreserveCase: preserveCase,
 	}
-	if err = c.Connect(); err != nil {
+	if err = c.Connect(ctx); err != nil {
 		log.Error("Connection failed", slog.String("cluster", c.Hostname), slog.String("error", err.Error()))
 		return
 	}
 	log.Info("Connected", slog.String("cluster", c.ClusterName), slog.String("version", c.OSVersion))
 
 	log.Info("Fetching stat information", slog.String("cluster", c.ClusterName), slog.String("version", c.OSVersion))
-	sd := c.fetchStatDetails(sg)
+	sd := c.fetchStatDetails(ctx, sg)
 
 	// divide stats into buckets based on update interval
 	log.Info("Calculating stat refresh times", slog.String("cluster", c.ClusterName))
@@ -316,7 +320,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		log.Error("failed to obtain backend", slog.String("backend", gc.Processor), slog.String("error", err.Error()))
 		return
 	}
-	err = ss.Init(c.ClusterName, config, ci, sd)
+	err = ss.Init(ctx, c.ClusterName, config, ci, sd)
 	if err != nil {
 		log.Error("Unable to initialize backend", slog.String("backend", gc.Processor), slog.String("error", err.Error()))
 		return
@@ -329,7 +333,12 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 		curTime := time.Now()
 		nextTime := nextItem.priority
 		if curTime.Before(nextTime) {
-			time.Sleep(nextTime.Sub(curTime))
+			select {
+			case <-time.After(nextTime.Sub(curTime)):
+			case <-ctx.Done():
+				log.Info("shutting down stats collection", slog.String("cluster", c.ClusterName))
+				return
+			}
 		}
 		// Collect one set of stats
 		log.Debug("start stat collection", slog.String("cluster", c.ClusterName))
@@ -340,7 +349,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			const maxRetryTime = time.Second * 1280
 			retryTime := time.Second * 10
 			for {
-				sr, err = c.GetStats(stats)
+				sr, err = c.GetStats(ctx, stats)
 				if err == nil {
 					break
 				}
@@ -351,7 +360,12 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					log.Warn("cluster may be down or unreachable", slog.String("cluster", c.ClusterName),
 						slog.Int("retry count", readFailCount))
 				}
-				time.Sleep(retryTime)
+				select {
+				case <-time.After(retryTime):
+				case <-ctx.Done():
+					log.Info("shutting down stats collection", slog.String("cluster", c.ClusterName))
+					return
+				}
 				if retryTime < maxRetryTime {
 					retryTime *= 2
 				}
@@ -363,14 +377,14 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			heap.Push(&pq, nextItem)
 			log.Debug("start writing stats to back end", slog.String("cluster", c.ClusterName))
 			// write stats, now with retries
-			err = c.WriteStats(gc, ss, sr)
+			err = c.WriteStats(ctx, gc, ss, sr)
 			if err != nil {
 				log.Error("unable to write stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 				return
 			}
 		} else if nextItem.value.stattype == StatTypeSummaryStatProtocol {
 			log.Debug("collecting protocol summary stats", slog.String("cluster", c.ClusterName))
-			ssp, err := c.GetSummaryProtocolStats()
+			ssp, err := c.GetSummaryProtocolStats(ctx)
 			if err != nil {
 				log.Error("failed to collect summary protocol stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()))
 			} else {
@@ -385,7 +399,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
 				}
 				log.Debug("start writing protocol summary stats to back end", slog.String("cluster", c.ClusterName))
-				err = ss.WritePoints(points)
+				err = ss.WritePoints(ctx, points)
 				if err != nil {
 					log.Error("unable to write protocol summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 					return
@@ -395,7 +409,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 			heap.Push(&pq, nextItem)
 		} else if nextItem.value.stattype == StatTypeSummaryStatClient {
 			log.Debug("collecting client summary stats", slog.String("cluster", c.ClusterName))
-			ssc, err := c.GetSummaryClientStats()
+			ssc, err := c.GetSummaryClientStats(ctx)
 			if err != nil {
 				log.Error("failed to collect summary client stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()))
 			} else {
@@ -410,7 +424,7 @@ func statsloop(config *tomlConfig, ci int, sg map[string]statGroup) {
 					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
 				}
 				log.Debug("start writing client summary stats to back end", slog.String("cluster", c.ClusterName))
-				err = ss.WritePoints(points)
+				err = ss.WritePoints(ctx, points)
 				if err != nil {
 					log.Error("unable to write client summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 					return

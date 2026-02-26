@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -252,7 +253,7 @@ func isInvalidStat(tags ptTags) bool {
 }
 
 // WriteStats takes an array of StatResults and writes them to the requested backend database
-func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) error {
+func (c *Cluster) WriteStats(ctx context.Context, gc globalConfig, ss DBWriter, stats []StatResult) error {
 	points := make([]Point, 0, len(stats)) // try to preallocate at least some space here
 	for _, stat := range stats {
 		degraded := false
@@ -292,12 +293,16 @@ func (c *Cluster) WriteStats(gc globalConfig, ss DBWriter, stats []StatResult) e
 	retryTime := time.Second * time.Duration(gc.ProcessorRetryIntvl)
 	var err error
 	for i := 1; i <= gc.ProcessorMaxRetries; i++ {
-		err = ss.WritePoints(points)
+		err = ss.WritePoints(ctx, points)
 		if err == nil {
 			break
 		}
 		log.Error("failed writing to back end database", slog.String("error", err.Error()), slog.Int("retry count", i), slog.Duration("retry time", retryTime))
-		time.Sleep(retryTime)
+		select {
+		case <-time.After(retryTime):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		if retryTime < maxRetryTime {
 			retryTime *= 2
 		}

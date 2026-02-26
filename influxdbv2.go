@@ -24,7 +24,7 @@ func GetInfluxDBv2Writer() DBWriter {
 }
 
 // Init initializes an InfluxDBv2Sink so that points can be written
-func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
+func (s *InfluxDBv2Sink) Init(ctx context.Context, cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
 	s.cluster = cluster
 	var err error
 	ic := config.InfluxDBv2
@@ -41,9 +41,9 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 	client := influxdb2.NewClient(url, token)
 	
 	// ping the database to ensure we can connect
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	ok, err := client.Ping(ctx)
+	ok, err := client.Ping(pingCtx)
 	if err != nil {
 		return fmt.Errorf("failed to ping InfluxDBv2: %w", err)
 	}
@@ -58,14 +58,14 @@ func (s *InfluxDBv2Sink) Init(cluster string, config *tomlConfig, _ int, _ map[s
 }
 
 // WritePoints writes a batch of points to InfluxDBv2
-func (s *InfluxDBv2Sink) WritePoints(points []Point) error {
+func (s *InfluxDBv2Sink) WritePoints(ctx context.Context, points []Point) error {
 	var pts []*write.Point
 	for _, point := range points {
 		for i, field := range point.fields {
 			pts = append(pts, influxdb2.NewPoint(point.name, point.tags[i], field, time.Unix(point.time, 0).UTC()))
 		}
 	}
-	if err := s.writeAPI.WritePoint(context.Background(), pts...); err != nil {
+	if err := s.writeAPI.WritePoint(ctx, pts...); err != nil {
 		return fmt.Errorf("InfluxDBv2 write failed: %w", err)
 	}
 	return nil

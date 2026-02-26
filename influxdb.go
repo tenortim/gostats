@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -21,7 +22,7 @@ func GetInfluxDBWriter() DBWriter {
 }
 
 // Init initializes an InfluxDBSink so that points can be written
-func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
+func (s *InfluxDBSink) Init(_ context.Context, cluster string, config *tomlConfig, _ int, _ map[string]statDetail) error {
 	s.cluster = cluster
 	var username, password string
 	var err error
@@ -61,7 +62,7 @@ func (s *InfluxDBSink) Init(cluster string, config *tomlConfig, _ int, _ map[str
 }
 
 // WritePoints writes a batch of points to InfluxDB
-func (s *InfluxDBSink) WritePoints(points []Point) error {
+func (s *InfluxDBSink) WritePoints(_ context.Context, points []Point) error {
 	bp, err := client.NewBatchPoints(s.bpConfig)
 	if err != nil {
 		return fmt.Errorf("unable to create InfluxDB batch points: %w", err)

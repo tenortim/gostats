@@ -130,7 +130,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was the major logging rewrite in v0.31
-	case "0.31", "0.32", "0.33", "0.34":
+	case "0.31", "0.32", "0.33", "0.34", "0.35":
 		return
 	}
 	die("Config file version is not compatible with this collector version", slog.String("config file version", confVersion), slog.String("collector version", Version))

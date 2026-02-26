@@ -1,5 +1,7 @@
 package main
 
+import "context"
+
 // DiscardSink defines the data for the null/discard back end
 type DiscardSink struct {
 	cluster string
@@ -11,12 +13,12 @@ func GetDiscardWriter() DBWriter {
 }
 
 // Init initializes an DiscardSink so that points can be written (thrown away)
-func (s *DiscardSink) Init(clusterName string, _ *tomlConfig, _ int, _ map[string]statDetail) error {
+func (s *DiscardSink) Init(_ context.Context, clusterName string, _ *tomlConfig, _ int, _ map[string]statDetail) error {
 	s.cluster = clusterName
 	return nil
 }
 
 // WritePoints takes an array of Points and discards them
-func (s *DiscardSink) WritePoints(points []Point) error {
+func (s *DiscardSink) WritePoints(_ context.Context, points []Point) error {
 	return nil
 }
