@@ -17,7 +17,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.35"
+const Version = "0.36"
 const userAgent = "gostats/" + Version
 
 const (
@@ -314,6 +314,15 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 			index:    i,
 		}
 		pq = append(pq, &item)
+		i++
+	}
+	if config.SummaryStats.Drive {
+		item := Item{
+			value:    PqValue{StatTypeSummaryStatDrive, nil},
+			priority: startTime,
+			index:    i,
+		}
+		pq = append(pq, &item)
 	}
 	heap.Init(&pq)
 
@@ -443,6 +452,35 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 				if err != nil {
 					if !errors.Is(err, context.Canceled) {
 						log.Error("unable to write client summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
+					}
+					return
+				}
+			}
+			nextItem.priority = nextItem.priority.Add(time.Second * 5) // Summary stats are all on a 5-second collection interval
+			heap.Push(&pq, nextItem)
+		} else if nextItem.value.stattype == StatTypeSummaryStatDrive {
+			log.Debug("collecting drive summary stats", slog.String("cluster", c.ClusterName))
+			ssd, err := c.GetSummaryDriveStats(ctx)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					log.Error("failed to collect summary drive stats", slog.String("cluster", c.ClusterName), slog.String("error", err.Error()))
+				}
+			} else {
+				name := summaryStatsBasename + "drive"
+				points := make([]Point, len(ssd))
+				for i, stat := range ssd {
+					var fa []ptFields
+					var ta []ptTags
+					fields, tags := decodeDriveSummaryStat(c.ClusterName, stat)
+					fa = append(fa, fields)
+					ta = append(ta, tags)
+					points[i] = Point{name: name, time: stat.Time, fields: fa, tags: ta}
+				}
+				log.Debug("start writing drive summary stats to back end", slog.String("cluster", c.ClusterName))
+				err = ss.WritePoints(ctx, points)
+				if err != nil {
+					if !errors.Is(err, context.Canceled) {
+						log.Error("unable to write drive summary stats to database, stopping collection", slog.String("cluster", c.ClusterName))
 					}
 					return
 				}

@@ -290,6 +290,14 @@ func (s *PrometheusSink) Init(ctx context.Context, clusterName string, config *t
 		}
 		metricMap[summaryStatsBasename+"client"] = &sd
 	}
+	if config.SummaryStats.Drive {
+		sd := statDetail{
+			description: "Summary statistics for drive",
+			valid:       true,
+			updateIntvl: 5,
+		}
+		metricMap[summaryStatsBasename+"drive"] = &sd
+	}
 	s.metricMap = metricMap
 
 	// Set up http server here

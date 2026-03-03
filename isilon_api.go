@@ -186,6 +186,73 @@ type SummaryStatsClientItem struct {
 	} `json:"user,omitempty"`
 }
 
+// SummaryStatsDrive stores the return from the /3/statistics/summary/drive endpoint
+// which returns an array of drive summary stats or an array of errors
+type SummaryStatsDrive struct {
+	// A list of errors that may be returned.
+	Errors []APIError `json:"errors,omitempty"`
+	// or the array of summary stats
+	Drive []SummaryStatsDriveItem `json:"drive,omitempty"`
+}
+
+// SummaryStatsDriveItem describes a single drive summary stat entry
+type SummaryStatsDriveItem struct {
+	AccessLatency   float64 `json:"access_latency"`
+	AccessSlow      float64 `json:"access_slow"`
+	Busy            float64 `json:"busy"`
+	BytesIn         float64 `json:"bytes_in"`
+	BytesOut        float64 `json:"bytes_out"`
+	DriveID         string  `json:"drive_id"`
+	IoschedLatency  float64 `json:"iosched_latency"`
+	IoschedQueue    float64 `json:"iosched_queue"`
+	Time            int64   `json:"time"`
+	Type            string  `json:"type"`
+	UsedBytesPercent float64 `json:"used_bytes_percent"`
+	UsedInodes      float64 `json:"used_inodes"`
+	XferSizeIn      float64 `json:"xfer_size_in"`
+	XferSizeOut     float64 `json:"xfer_size_out"`
+	XfersIn         float64 `json:"xfers_in"`
+	XfersOut        float64 `json:"xfers_out"`
+}
+
+// UnmarshalSummaryStatsDrive unmarshals the JSON return from the summary stats drive endpoint
+func UnmarshalSummaryStatsDrive(data []byte) (SummaryStatsDrive, error) {
+	var r SummaryStatsDrive
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+// GetSummaryDriveStats queries the summary stats drive endpoint and returns a SummaryStatsDrive struct or an error
+func (c *Cluster) GetSummaryDriveStats(ctx context.Context) ([]SummaryStatsDriveItem, error) {
+	path := summaryStatsPath + "drive?degraded=true"
+	log.Info("fetching drive summary stats", slog.String("cluster", c.String()))
+	resp, err := c.restGet(ctx, path)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			log.Error("failed to get drive summary stats", slog.String("cluster", c.String()), slog.String("error", err.Error()))
+		}
+		// TODO investigate handling partial errors rather than totally failing?
+		return nil, err
+	}
+	// TODO - Need to handle JSON return of "errors" here (e.g. for re-auth
+	// when using session cookies)
+	log.Log(ctx, LevelTrace, "got response", slog.String("cluster", c.String()), "response", resp)
+	r, err := UnmarshalSummaryStatsDrive(resp)
+	if err != nil {
+		errmsg := fmt.Errorf("cluster %s unable to parse drive summary stats response %q - error %s", c, resp, err)
+		return nil, errmsg
+	}
+	if len(r.Errors) > 0 {
+		// Theoretically, the Errors array can contain multiple entries
+		// I haven't ever seen that, so we just take the first entry here
+		apiError := r.Errors[0]
+		errmsg := fmt.Errorf("drive summary stats endpoint for cluster %s returned error code %s, message %s", c.String(), apiError.Code, apiError.Message)
+		return nil, errmsg
+	}
+	log.Debug("successfully decoded drive summary stats", slog.String("cluster", c.String()), slog.Int("count", len(r.Drive)))
+	return r.Drive, nil
+}
+
 // initialize handles setting up the API client
 func (c *Cluster) initialize() error {
 	// already initialized?

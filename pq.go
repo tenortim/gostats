@@ -17,6 +17,7 @@ const (
 	StatTypeRegularStat StatType = iota
 	StatTypeSummaryStatProtocol
 	StatTypeSummaryStatClient
+	StatTypeSummaryStatDrive
 )
 
 // PqValue is the value stored in the priority queue

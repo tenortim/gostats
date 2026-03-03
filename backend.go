@@ -94,6 +94,30 @@ func decodeClientSummaryStat(cluster string, css SummaryStatsClientItem) (ptFiel
 	return fields, tags
 }
 
+// decodeDriveSummaryStat takes a SummaryStatsDriveItem and decodes it into
+// fields and tags usable by the back end writers.
+func decodeDriveSummaryStat(cluster string, dss SummaryStatsDriveItem) (ptFields, ptTags) {
+	tags := ptTags{"cluster": cluster}
+	fields := make(ptFields)
+	tags["drive_id"] = dss.DriveID
+	tags["type"] = dss.Type
+	fields["access_latency"] = dss.AccessLatency
+	fields["access_slow"] = dss.AccessSlow
+	fields["busy"] = dss.Busy
+	fields["bytes_in"] = dss.BytesIn
+	fields["bytes_out"] = dss.BytesOut
+	fields["iosched_latency"] = dss.IoschedLatency
+	fields["iosched_queue"] = dss.IoschedQueue
+	fields["time"] = dss.Time
+	fields["used_bytes_percent"] = dss.UsedBytesPercent
+	fields["used_inodes"] = dss.UsedInodes
+	fields["xfer_size_in"] = dss.XferSizeIn
+	fields["xfer_size_out"] = dss.XferSizeOut
+	fields["xfers_in"] = dss.XfersIn
+	fields["xfers_out"] = dss.XfersOut
+	return fields, tags
+}
+
 // decodeStat takes the JSON result from the OneFS statistics API and breaks it
 // out into fields and tags usable by the back end writers.
 func decodeStat(cluster string, stat StatResult, includeDegraded bool, degraded bool) ([]ptFields, []ptTags, error) {

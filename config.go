@@ -108,6 +108,7 @@ type clusterConf struct {
 type summaryStatConfig struct {
 	Protocol bool // protocol summary stats enabled?
 	Client   bool // client summary stats enabled?
+	Drive    bool // drive summary stats enabled?
 }
 
 // The collector partitions the stats to be collected into two tiers.
@@ -130,7 +131,7 @@ func validateConfigVersion(confVersion string) {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was the major logging rewrite in v0.31
-	case "0.31", "0.32", "0.33", "0.34", "0.35":
+	case "0.31", "0.32", "0.33", "0.34", "0.35", "0.36":
 		return
 	}
 	die("Config file version is not compatible with this collector version", slog.String("config file version", confVersion), slog.String("collector version", Version))
