@@ -100,6 +100,27 @@ authenticated = false
 # password = "prompass"
 # tls_cert = "/path/to/certificate"
 # tls_key = "/path/to/key"
+#
+# instance_label_name adds a second label carrying the Isilon cluster name,
+# using the label name of your choice. This is useful in environments such as
+# Kubernetes where Prometheus is configured with a "cluster" external label
+# identifying the Kubernetes cluster. When Prometheus external labels collide
+# with labels already present on a scraped metric, Prometheus renames the
+# metric's label to "exported_<name>", so the Isilon cluster identity is
+# preserved but becomes harder to query directly.
+#
+# By setting instance_label_name to a value that does not conflict with any
+# Prometheus external label or reserved label (e.g. "isilon_cluster"), the
+# Isilon cluster name will be available under that label without renaming.
+# Note that Prometheus reserves "instance" (the scrape target address) and
+# "job", so those names will also be renamed to "exported_instance" /
+# "exported_job" if used here.
+#
+# The "cluster" label is always set to the Isilon cluster name regardless of
+# this setting; instance_label_name only controls whether a second copy of
+# that value is stamped under an additional label name.
+#
+# Example: instance_label_name = "isilon_cluster"
 
 # discard back end currently has no configurable options and hence no config stanza
 

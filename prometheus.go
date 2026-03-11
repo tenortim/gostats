@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -31,9 +32,10 @@ type PrometheusClient struct {
 
 // PrometheusSink defines the data to allow us talk to an Prometheus database
 type PrometheusSink struct {
-	cluster   string
-	client    PrometheusClient
-	metricMap map[string]*statDetail
+	cluster           string
+	instanceLabelName string
+	client            PrometheusClient
+	metricMap         map[string]*statDetail
 
 	sync.Mutex
 	fam map[string]*MetricFamily
@@ -125,26 +127,29 @@ type httpSdConf struct {
 	ListenPorts []uint64
 }
 
+// httpSdTarget is the JSON structure for a Prometheus HTTP SD target
+type httpSdTarget struct {
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
+}
+
 // ServeHTTP implements the http.Handler interface for the Prometheus HTTP SD handler
 func (h *httpSdConf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var sb strings.Builder
-	sb.WriteString(`[
-	{
-		"targets": [`)
+	target := httpSdTarget{
+		Targets: make([]string, len(h.ListenPorts)),
+		Labels:  map[string]string{"__meta_prometheus_job": "isilon_stats"},
+	}
 	for i, port := range h.ListenPorts {
-		if i != 0 {
-			sb.WriteString(", ")
-		}
-		fmt.Fprintf(&sb, "\"%s:%d\"", h.ListenIP, port)
+		target.Targets[i] = fmt.Sprintf("%s:%d", h.ListenIP, port)
 	}
-	sb.WriteString(`],
-		"labels": {
-			"__meta_prometheus_job": "isilon_stats"
-		}
+	jsonBytes, err := json.Marshal([]httpSdTarget{target})
+	if err != nil {
+		log.Error("error encoding JSON response for HTTP SD", slog.String("error", err.Error()))
+		http.Error(w, "error encoding JSON response", http.StatusInternalServerError)
+		return
 	}
-]`)
-	_, _ = w.Write([]byte(sb.String()))
+	_, _ = w.Write(jsonBytes)
 }
 
 // Start an http listener in a goroutine to server Prometheus HTTP SD requests
@@ -245,6 +250,9 @@ func (p *PrometheusClient) Connect(ctx context.Context) error {
 // Init initializes an PrometheusSink so that points can be written
 func (s *PrometheusSink) Init(ctx context.Context, clusterName string, config *tomlConfig, ci int, sd map[string]statDetail) error {
 	s.cluster = clusterName
+	if config.Prometheus.InstanceLabelName != nil {
+		s.instanceLabelName = *config.Prometheus.InstanceLabelName
+	}
 	promconf := config.Prometheus
 	port := config.Clusters[ci].PrometheusPort
 	if port == nil {
@@ -442,6 +450,16 @@ func (s *PrometheusSink) WritePoints(_ context.Context, points []Point) error {
 		for i, fields := range point.fields {
 			sampleID := CreateSampleID(point.tags[i])
 			labels := make(prometheus.Labels)
+			// If instance_label_name is configured, stamp the Isilon cluster name
+			// under that label as well as the standard "cluster" label. This is
+			// useful in Kubernetes environments where a Prometheus external label
+			// named "cluster" identifies the Kubernetes cluster; Prometheus renames
+			// any pre-existing "cluster" label on scraped metrics to "exported_cluster",
+			// making direct filtering awkward. Choosing a non-conflicting label name
+			// (e.g. "isilon_cluster") preserves the Isilon identity without renaming.
+			if s.instanceLabelName != "" {
+				labels[s.instanceLabelName] = s.cluster
+			}
 			// is this a multi-valued stat e.g., proto stats detail?
 			multiValued := false
 			if len(fields) > 1 {

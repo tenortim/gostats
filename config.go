@@ -78,11 +78,12 @@ type influxDBv2Config struct {
 
 // prometheusConfig defines the Prometheus settings in the config file
 type prometheusConfig struct {
-	Authenticated bool   `toml:"authenticated"`
-	Username      string `toml:"username"`
-	Password      string `toml:"password"`
-	TLSCert       string `toml:"tls_cert"`
-	TLSKey        string `toml:"tls_key"`
+	Authenticated     bool    `toml:"authenticated"`
+	Username          string  `toml:"username"`
+	Password          string  `toml:"password"`
+	TLSCert           string  `toml:"tls_cert"`
+	TLSKey            string  `toml:"tls_key"`
+	InstanceLabelName *string `toml:"instance_label_name"`
 }
 
 // promSdConf defines the Prometheus HTTP Service Discovery settings in the config file
