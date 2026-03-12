@@ -17,7 +17,7 @@ import (
 )
 
 // Version is the released program version
-const Version = "0.36"
+const Version = "0.37"
 const userAgent = "gostats/" + Version
 
 const (
@@ -211,8 +211,9 @@ func parseUpdateIntvl(interval string, minIntvl int) sgRefresh {
 
 // a mapping of the update interval to the stats to collect at that rate
 type statTimeSet struct {
-	interval time.Duration
-	stats    []string
+	interval  time.Duration
+	stats     []string
+	groupName string // non-empty when fetch_by_statgroup is enabled
 }
 
 // statsloop is the main collection loop for a single cluster
@@ -279,7 +280,7 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 
 	// divide stats into buckets based on update interval
 	log.Info("Calculating stat refresh times", slog.String("cluster", c.ClusterName))
-	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg, sd)
+	statBuckets := calcBuckets(c, gc.MinUpdateInvtl, sg, sd, gc.FetchByStatgroup)
 	if len(statBuckets) == 0 {
 		log.Error("No stat buckets found. Check your config file", slog.String("cluster", c.ClusterName))
 		return
@@ -355,7 +356,11 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 			}
 		}
 		// Collect one set of stats
-		log.Debug("start stat collection", slog.String("cluster", c.ClusterName))
+		if nextItem.value.sts != nil && nextItem.value.sts.groupName != "" {
+			log.Debug("start stat collection", slog.String("cluster", c.ClusterName), slog.String("group", nextItem.value.sts.groupName))
+		} else {
+			log.Debug("start stat collection", slog.String("cluster", c.ClusterName))
+		}
 		if nextItem.value.stattype == StatTypeRegularStat {
 			var sr []StatResult
 			stats := nextItem.value.sts.stats
@@ -496,21 +501,44 @@ func statsloop(ctx context.Context, config *tomlConfig, ci int, sg map[string]st
 
 // calcBuckets calculates the collection buckets for the given cluster
 // based on the stat groups, their multipliers/absolute times, and the
-// individual stat update intervals
-// returns a slice of statTimeSet structs, each containing a collection
-// interval and the list of stats to collect at that interval
-// if a stat is invalid for the cluster, it is skipped with a warning
-// if no valid stats are found, an empty slice is returned
-// mui is the minimum update interval in seconds from the global config
-func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]statDetail) []statTimeSet {
-	stm := make(map[time.Duration][]string)
+// individual stat update intervals.
+// Returns a slice of statTimeSet structs, each containing a collection
+// interval and the list of stats to collect at that interval.
+// If a stat is invalid for the cluster, it is skipped with a warning.
+// If no valid stats are found, an empty slice is returned.
+// mui is the minimum update interval in seconds from the global config.
+//
+// When fetchByStatgroup is false (the default), stats from different groups
+// that share the same computed interval are merged into a single bucket and
+// fetched together in as few API requests as possible.
+//
+// When fetchByStatgroup is true, each stat group produces its own bucket(s)
+// even if two groups would otherwise share the same interval. This results in
+// one GET request per active stat group per collection cycle, which reduces
+// the chance of timeouts on heavily loaded clusters.
+func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]statDetail, fetchByStatgroup bool) []statTimeSet {
+	// bucketKey uniquely identifies a collection bucket.
+	// When fetchByStatgroup is false, group is always "" so stats from
+	// different groups with the same interval are merged into one bucket.
+	// When fetchByStatgroup is true, group carries the stat group name so
+	// each group gets its own bucket(s).
+	type bucketKey struct {
+		group    string
+		interval time.Duration
+	}
+	stm := make(map[bucketKey][]string)
 	for group := range sg {
+		keyGroup := ""
+		if fetchByStatgroup {
+			keyGroup = group
+		}
 		absTime := sg[group].absTime
 		if absTime != 0 {
 			// these were already clamped to no less than the minimum in the
 			// global config parsing so nothing to do here
 			d := time.Duration(absTime) * time.Second
-			stm[d] = append(stm[d], sg[group].stats...)
+			key := bucketKey{keyGroup, d}
+			stm[key] = append(stm[key], sg[group].stats...)
 			continue
 		}
 		multiplier := sg[group].multiplier
@@ -539,14 +567,13 @@ func calcBuckets(c *Cluster, mui int, sg map[string]statGroup, sd map[string]sta
 			if d == 0 {
 				die("logic error: zero duration", slog.String("stat", stat), slog.Float64("update interval", sui), slog.Float64("multiplier", multiplier))
 			}
-			stm[d] = append(stm[d], stat)
+			key := bucketKey{keyGroup, d}
+			stm[key] = append(stm[key], stat)
 		}
 	}
-	sts := make([]statTimeSet, len(stm))
-	i := 0
+	sts := make([]statTimeSet, 0, len(stm))
 	for k, v := range stm {
-		sts[i] = statTimeSet{k, v}
-		i++
+		sts = append(sts, statTimeSet{interval: k.interval, stats: v, groupName: k.group})
 	}
 	return sts
 }

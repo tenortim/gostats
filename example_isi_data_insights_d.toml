@@ -4,7 +4,7 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.36"
+version = "v0.37"
 
 # Pluggable back end support
 # Supported back ends are "influxdb", "influxdbv2", "prometheus" and "discard"
@@ -38,6 +38,14 @@ min_update_interval_override = 5
 
 # include degraded status tag in metrics, defaults to false.
 # include_degraded = true
+
+# By default, gostats batches all stats that share the same collection interval
+# into as few GET requests as possible. On clusters under heavy load, these
+# large requests can time out. Setting fetch_by_statgroup to true causes gostats
+# to fetch one stat group at a time (one GET request per active stat group),
+# reducing the size of each request at the cost of slightly more API calls.
+# Defaults to false.
+# fetch_by_statgroup = true
 
 # Specifies the active list of stat groups to query, each stat group name
 # specified here should have a corresponding section in the config file.
