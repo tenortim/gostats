@@ -1,6 +1,31 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.37 Thu Mar 12 09:42:04 2026 -0700
+
+### New Features
+
+- Add `fetch_by_statgroup` global config option
+  - By default gostats batches all stats that share the same collection interval into as few GET requests as possible. On clusters under heavy load these large requests can time out. Setting `fetch_by_statgroup = true` causes gostats to issue one GET request per active stat group per collection cycle, reducing the size of each request at the cost of slightly more API calls. Defaults to `false`; existing configs are unaffected.
+
+### Changes
+
+- Improve Prometheus HTTP SD handler
+  - Replaced manual JSON string-building in the HTTP SD `ServeHTTP` handler with a proper struct and `json.Marshal`, making the response correct by construction and adding error handling.
+- Add optional `instance_label_name` to `[prometheus]` config
+  - When set, a second label carrying the Isilon cluster name is stamped on every metric under the configured label name. This is useful in Kubernetes environments where a Prometheus `cluster` external label identifies the Kubernetes cluster, causing Prometheus to rename gostats' `cluster` label to `exported_cluster`. Using a non-conflicting name (e.g. `isilon_cluster`) preserves the Isilon cluster identity without renaming. The feature is opt-in; existing deployments are unaffected.
+
+## 0.36 Tue Mar 03 10:17:45 2026 -0800
+
+### New Features
+
+- Add drive summary stats collection
+  - Adds support for the OneFS drive summary statistics endpoint, parallel to the existing protocol and client summary stats. Disabled by default; enable with `drive = true` under `[summary_stats]` in the config file.
+
+### Changes
+
+- Add tests for summary stat decoding, logging, config parsing, and Isilon API layer
+
 ## 0.35 Thu Feb 26 14:40:00 2026 -0800
 
 ### New Features
