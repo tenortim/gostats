@@ -1,0 +1,217 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/protocol-stats
+()
+    Overview: The pstat mode generates Per-protocol detailed statistics along
+              with CPU, OneFS, network and disk statistics.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: 
+()
+URL: GET /platform/<<version=3>>/statistics/summary/protocol-stats
+
+Query arguments:
+degraded=<boolean> Continue to report if some nodes do not respond.
+ protocol=<string> A single protocol. Default is nfs3. (nfs3 | smb1 | nlm | ftp
+                   | http | siq | smb2 | nfs4 | nfsrdma | nfs4rdma | papi |
+                   jobd | irp | lsass_in | lsass_out | hdfs | s3)
+    nodes=<string> A comma separated list. Specify node(s) for which statistics
+                   should be reported. Default is all. Zero (0) should be
+                   passed in as the sole argument to indicate local.
+ timeout=<integer> Timeout remote commands after NUM seconds, where NUM is the
+                   integer passed to the argument.
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "protocol-stats": {
+          "additionalProperties": false, 
+          "type": "object", 
+          "properties": {
+            "protocol": {
+              "type": "object", 
+              "description": "A single protocol for which statistics should be reported.", 
+              "properties": {
+                "data": {
+                  "items": {
+                    "type": "object", 
+                    "properties": {
+                      "name": {
+                        "required": true, 
+                        "type": "string", 
+                        "description": "The name of the protocol operation."
+                      }, 
+                      "value": {
+                        "required": true, 
+                        "type": "any", 
+                        "description": "Protocol specific operations per second. This is a variable number of output fields depending on the protocol being displayed."
+                      }
+                    }
+                  }, 
+                  "required": true, 
+                  "type": "array"
+                }, 
+                "name": {
+                  "type": "string", 
+                  "description": "The name of the protocol."
+                }
+              }
+            }, 
+            "network": {
+              "type": "object", 
+              "properties": {
+                "out": {
+                  "type": "object", 
+                  "properties": {
+                    "errors_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network output errors per-second"
+                    }, 
+                    "megabytes_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network output megabytes per-second"
+                    }, 
+                    "packets_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network output packets per-second"
+                    }
+                  }
+                }, 
+                "in": {
+                  "type": "object", 
+                  "properties": {
+                    "errors_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network input errors per-second"
+                    }, 
+                    "megabytes_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network input megabytes per-second"
+                    }, 
+                    "packets_per_sec": {
+                      "required": true, 
+                      "type": "number", 
+                      "description": "Network input packets per-second"
+                    }
+                  }
+                }
+              }
+            }, 
+            "onefs": {
+              "type": "object", 
+              "properties": {
+                "total": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "OneFS throughput in MB/s total."
+                }, 
+                "out": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "OneFS throughput in MB/s out."
+                }, 
+                "in": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "OneFS throughput in MB/s in."
+                }
+              }
+            }, 
+            "time": {
+              "required": true, 
+              "type": "integer", 
+              "description": "Unix Epoch time in seconds of the request."
+            }, 
+            "disk": {
+              "type": "object", 
+              "properties": {
+                "read": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Disk reads"
+                }, 
+                "write": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Disk writes"
+                }, 
+                "iops": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Disk iops"
+                }
+              }
+            }, 
+            "cpu": {
+              "type": "object", 
+              "properties": {
+                "idle": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Percentage of CPU idle time"
+                }, 
+                "system": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Percentage of CPU consumed by the system"
+                }, 
+                "user": {
+                  "required": true, 
+                  "type": "number", 
+                  "description": "Percentage of CPU consumed by user activities"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

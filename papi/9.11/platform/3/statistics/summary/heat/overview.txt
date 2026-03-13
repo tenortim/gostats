@@ -1,0 +1,153 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/heat
+()
+    Overview: Heat mode lists /ifs files and directories that are the "hottest"
+              by various important measures relating to system performance.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: File heat map, i.e. rate of file operations, and the type of
+            operation listed by path/lin(s).
+()
+URL: GET /platform/<<version=3>>/statistics/summary/heat
+
+Query arguments:
+       sort=<string> Sort data by the specified comma-separated field(s).
+                     (operation_rate | node | event_name | class_name | lin |
+                     path). Prepend 'asc:' or 'desc:' to a field to change the
+                     sort direction.
+convertlin=<boolean> Convert lin to hex. Default is true.
+    totalby=<string> A comma separated list specifying what should be unique.
+                     (node | event_name | event_class | operation_rate | path |
+                     lin). Aggregation is performed over all the fields not
+                     specified in the list.
+ pathdepth=<integer> Squash paths to this directory depth. Defaults to none,
+                     i.e. the paths are not limited (subject to the system
+                     limits).
+   numeric=<boolean> Do not resolve LINs into filenames. Default is false.
+     events=<string> A comma separated list. Default is all. Only report
+                     specified event types(s). (blocked | contended |
+                     deadlocked | getattr | link | lock | lookup | read |
+                     rename | setattr | unlink | write).
+   maxpath=<integer> Maximum bytes allocated for looking up a path. An ASCII
+                     character is 1 byte (it may be more for other types of
+                     encoding). The default is 4096 bytes. Zero (0) means
+                     unlimited (subject to the system limits).
+    classes=<string> A comma separated list. Default is all. (other | write |
+                     read | namespace_read | namespace_write).
+   timeout=<integer> Timeout remote commands after NUM seconds, where NUM is
+                     the integer passed to the argument.
+      nodes=<string> A comma separated list. Specify node(s) for which
+                     statistics should be reported. Default is all. Zero (0)
+                     should be passed in as the sole argument to indicate local.
+  degraded=<boolean> Continue to report if some nodes do not respond.
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "heat": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "node": {
+                "required": true, 
+                "type": [
+                  "integer", 
+                  "null"
+                ], 
+                "description": "The node where this event occurred."
+              }, 
+              "event_type": {
+                "required": true, 
+                "type": [
+                  "integer", 
+                  "null"
+                ], 
+                "description": "The event type id"
+              }, 
+              "class_name": {
+                "required": true, 
+                "type": "string", 
+                "description": "The class of operation"
+              }, 
+              "lin": {
+                "required": true, 
+                "type": [
+                  "string", 
+                  "integer", 
+                  "null"
+                ], 
+                "description": "Logical inode (LIN)"
+              }, 
+              "operation_rate": {
+                "required": true, 
+                "type": "number", 
+                "description": "Approximate operations per second for this lin."
+              }, 
+              "event_name": {
+                "required": true, 
+                "type": "string", 
+                "description": "The type of event"
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds of the request."
+              }, 
+              "path": {
+                "required": true, 
+                "type": "string", 
+                "description": "Canonical LIN path if known"
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

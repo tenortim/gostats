@@ -1,0 +1,66 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "heat": {
+      "items": {
+        "properties": {
+          "class_name": {
+            "description": "The class of operation", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "event_name": {
+            "description": "The type of event", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "event_type": {
+            "description": "The event type id", 
+            "required": true, 
+            "type": [
+              "integer", 
+              "null"
+            ]
+          }, 
+          "lin": {
+            "description": "Logical inode (LIN)", 
+            "required": true, 
+            "type": [
+              "string", 
+              "integer", 
+              "null"
+            ]
+          }, 
+          "node": {
+            "description": "The node where this event occurred.", 
+            "required": true, 
+            "type": [
+              "integer", 
+              "null"
+            ]
+          }, 
+          "operation_rate": {
+            "description": "Approximate operations per second for this lin.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "path": {
+            "description": "Canonical LIN path if known", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds of the request.", 
+            "required": true, 
+            "type": "integer"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

@@ -1,0 +1,156 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/system
+()
+    Overview: System mode displays general cluster statistics. This mode
+              displays op rates for all supported protocols, as well as network
+              and disk traffic (in kB per second).
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: 
+()
+URL: GET /platform/<<version=3>>/statistics/summary/system
+
+Query arguments:
+     sort=<string> Sort data by the specified comma-separated field(s). (time |
+                   node | cpu | smb | ftp | http | nfs | hdfs | s3 | total |
+                   net_in | net_out | disk_in). Prepend 'asc:' or 'desc:' to a
+                   field to change the sort direction.
+ oprates=<boolean> Display protocol operation rate statistics rather than the
+                   default throughput statistics.
+degraded=<boolean> Continue to report if some nodes do not respond.
+    nodes=<string> A comma separated list. Specify node(s) for which statistics
+                   should be reported. Default is all. Zero (0) should be
+                   passed in as the sole argument to indicate local.
+ timeout=<integer> Timeout remote commands after NUM seconds, where NUM is the
+                   integer passed to the argument.
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "system": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "node": {
+                "required": true, 
+                "type": "string", 
+                "description": "Node ID/LNN, 'All' for cluster."
+              }, 
+              "ftp": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/sec) for FTP operations."
+              }, 
+              "http": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/sec) for HTTP operations."
+              }, 
+              "hdfs": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/second) for HDFS operations."
+              }, 
+              "s3": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/second) for S3 operations."
+              }, 
+              "net_out": {
+                "required": true, 
+                "type": "number", 
+                "description": "Outgoing network traffic (in bytes/sec) for all operations."
+              }, 
+              "smb": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/sec) for SMB (SMB1 & SMB2) operations."
+              }, 
+              "nfs": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/sec) for NFS (NFS3 & NFS4) operations."
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds of the request."
+              }, 
+              "disk_out": {
+                "required": true, 
+                "type": "number", 
+                "description": "Traffic from disk (in bytes/sec)."
+              }, 
+              "net_in": {
+                "required": true, 
+                "type": "number", 
+                "description": "Incoming network traffic (in bytes/sec) for all operations."
+              }, 
+              "disk_in": {
+                "required": true, 
+                "type": "number", 
+                "description": "Traffic to disk (in bytes/sec)."
+              }, 
+              "total": {
+                "required": true, 
+                "type": "number", 
+                "description": "The total throughput (in bytes/sec) for all protocols listed."
+              }, 
+              "cpu": {
+                "required": true, 
+                "type": "number", 
+                "description": "The percentage CPU utilization."
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

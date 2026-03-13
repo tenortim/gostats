@@ -1,0 +1,151 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "protocol-stats": {
+      "additionalProperties": false, 
+      "properties": {
+        "cpu": {
+          "properties": {
+            "idle": {
+              "description": "Percentage of CPU idle time", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "system": {
+              "description": "Percentage of CPU consumed by the system", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "user": {
+              "description": "Percentage of CPU consumed by user activities", 
+              "required": true, 
+              "type": "number"
+            }
+          }, 
+          "type": "object"
+        }, 
+        "disk": {
+          "properties": {
+            "iops": {
+              "description": "Disk iops", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "read": {
+              "description": "Disk reads", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "write": {
+              "description": "Disk writes", 
+              "required": true, 
+              "type": "number"
+            }
+          }, 
+          "type": "object"
+        }, 
+        "network": {
+          "properties": {
+            "in": {
+              "properties": {
+                "errors_per_sec": {
+                  "description": "Network input errors per-second", 
+                  "required": true, 
+                  "type": "number"
+                }, 
+                "megabytes_per_sec": {
+                  "description": "Network input megabytes per-second", 
+                  "required": true, 
+                  "type": "number"
+                }, 
+                "packets_per_sec": {
+                  "description": "Network input packets per-second", 
+                  "required": true, 
+                  "type": "number"
+                }
+              }, 
+              "type": "object"
+            }, 
+            "out": {
+              "properties": {
+                "errors_per_sec": {
+                  "description": "Network output errors per-second", 
+                  "required": true, 
+                  "type": "number"
+                }, 
+                "megabytes_per_sec": {
+                  "description": "Network output megabytes per-second", 
+                  "required": true, 
+                  "type": "number"
+                }, 
+                "packets_per_sec": {
+                  "description": "Network output packets per-second", 
+                  "required": true, 
+                  "type": "number"
+                }
+              }, 
+              "type": "object"
+            }
+          }, 
+          "type": "object"
+        }, 
+        "onefs": {
+          "properties": {
+            "in": {
+              "description": "OneFS throughput in MB/s in.", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "out": {
+              "description": "OneFS throughput in MB/s out.", 
+              "required": true, 
+              "type": "number"
+            }, 
+            "total": {
+              "description": "OneFS throughput in MB/s total.", 
+              "required": true, 
+              "type": "number"
+            }
+          }, 
+          "type": "object"
+        }, 
+        "protocol": {
+          "description": "A single protocol for which statistics should be reported.", 
+          "properties": {
+            "data": {
+              "items": {
+                "properties": {
+                  "name": {
+                    "description": "The name of the protocol operation.", 
+                    "required": true, 
+                    "type": "string"
+                  }, 
+                  "value": {
+                    "description": "Protocol specific operations per second. This is a variable number of output fields depending on the protocol being displayed.", 
+                    "required": true, 
+                    "type": "any"
+                  }
+                }, 
+                "type": "object"
+              }, 
+              "required": true, 
+              "type": "array"
+            }, 
+            "name": {
+              "description": "The name of the protocol.", 
+              "type": "string"
+            }
+          }, 
+          "type": "object"
+        }, 
+        "time": {
+          "description": "Unix Epoch time in seconds of the request.", 
+          "required": true, 
+          "type": "integer"
+        }
+      }, 
+      "type": "object"
+    }
+  }, 
+  "type": "object"
+}

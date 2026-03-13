@@ -1,0 +1,25 @@
+{
+  "GET_args": {
+    "description": "", 
+    "properties": {
+      "degraded": {
+        "description": "Continue to report if some nodes do not respond.", 
+        "type": "boolean"
+      }, 
+      "nodes": {
+        "description": "A comma separated list. Specify node(s) for which statistics should be reported. Default is all. Zero (0) should be passed in as the sole argument to indicate local.", 
+        "type": "string"
+      }, 
+      "protocol": {
+        "description": "A single protocol. Default is nfs3. (nfs3 | smb1 | nlm | ftp | http | siq | smb2 | nfs4 | nfsrdma | nfs4rdma | papi | jobd | irp | lsass_in | lsass_out | hdfs | s3)", 
+        "type": "string"
+      }, 
+      "timeout": {
+        "description": "Timeout remote commands after NUM seconds, where NUM is the integer passed to the argument.", 
+        "type": "integer"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "The pstat mode generates Per-protocol detailed statistics along with CPU, OneFS, network and disk statistics."
+}

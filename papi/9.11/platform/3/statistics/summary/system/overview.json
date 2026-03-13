@@ -1,0 +1,29 @@
+{
+  "GET_args": {
+    "description": "", 
+    "properties": {
+      "degraded": {
+        "description": "Continue to report if some nodes do not respond.", 
+        "type": "boolean"
+      }, 
+      "nodes": {
+        "description": "A comma separated list. Specify node(s) for which statistics should be reported. Default is all. Zero (0) should be passed in as the sole argument to indicate local.", 
+        "type": "string"
+      }, 
+      "oprates": {
+        "description": "Display protocol operation rate statistics rather than the default throughput statistics.", 
+        "type": "boolean"
+      }, 
+      "sort": {
+        "description": "Sort data by the specified comma-separated field(s). (time | node | cpu | smb | ftp | http | nfs | hdfs | s3 | total | net_in | net_out | disk_in). Prepend 'asc:' or 'desc:' to a field to change the sort direction. ", 
+        "type": "string"
+      }, 
+      "timeout": {
+        "description": "Timeout remote commands after NUM seconds, where NUM is the integer passed to the argument.", 
+        "type": "integer"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "System mode displays general cluster statistics. This mode displays op rates for all supported protocols, as well as network and disk traffic (in kB per second)."
+}

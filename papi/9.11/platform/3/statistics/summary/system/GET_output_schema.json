@@ -1,0 +1,86 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "system": {
+      "items": {
+        "properties": {
+          "cpu": {
+            "description": "The percentage CPU utilization.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "disk_in": {
+            "description": "Traffic to disk (in bytes/sec).", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "disk_out": {
+            "description": "Traffic from disk (in bytes/sec).", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "ftp": {
+            "description": "The total throughput (in bytes/sec) for FTP operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "hdfs": {
+            "description": "The total throughput (in bytes/second) for HDFS operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "http": {
+            "description": "The total throughput (in bytes/sec) for HTTP operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "net_in": {
+            "description": "Incoming network traffic (in bytes/sec) for all operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "net_out": {
+            "description": "Outgoing network traffic (in bytes/sec) for all operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "nfs": {
+            "description": "The total throughput (in bytes/sec) for NFS (NFS3 & NFS4) operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "node": {
+            "description": "Node ID/LNN, 'All' for cluster.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "s3": {
+            "description": "The total throughput (in bytes/second) for S3 operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "smb": {
+            "description": "The total throughput (in bytes/sec) for SMB (SMB1 & SMB2) operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds of the request.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "total": {
+            "description": "The total throughput (in bytes/sec) for all protocols listed.", 
+            "required": true, 
+            "type": "number"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}
