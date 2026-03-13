@@ -41,6 +41,14 @@ The current version of gostats requires Golang version **1.24** or higher to bui
 
 * To stop the connector gracefully, send SIGTERM or SIGINT (Ctrl-C). In-flight operations are allowed to complete before the process exits.
 
+* To reload the configuration without restarting the process, either save the config file or (on Unix) send SIGHUP:
+
+    ```sh
+    kill -HUP <pid>
+    ```
+
+    On all platforms, gostats watches the config file for modifications. When a change is detected, all in-flight collections are allowed to complete, then the config is re-read and collection resumes with the new settings. If the updated config file cannot be parsed, an error is logged and gostats continues running with the previous configuration.
+
 * If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanza. This will spawn a Prometheus HTTP metrics listener on the configured port.
 
 Additional config notes:
