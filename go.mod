@@ -5,6 +5,7 @@ go 1.24.6
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/deckarep/golang-set/v2 v2.7.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 	github.com/prometheus/client_golang v1.20.5
 	github.com/samber/slog-multi v1.6.0
@@ -13,7 +14,6 @@ require (
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
