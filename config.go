@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"math"
 	"os"
 	"strings"
@@ -124,23 +123,24 @@ type statGroupConf struct {
 }
 
 // validateConfigVersion checks the version of the config file to ensure that it is
-// compatible with this version of the collector
-// If not, it is a fatal error
-func validateConfigVersion(confVersion string) {
+// compatible with this version of the collector. Returns an error if not compatible.
+func validateConfigVersion(confVersion string) error {
 	if confVersion == "" {
-		die("The collector requires a versioned config file (see the example config)")
+		return fmt.Errorf("the collector requires a versioned config file (see the example config)")
 	}
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was the major logging rewrite in v0.31
 	case "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37":
-		return
+		return nil
 	}
-	die("Config file version is not compatible with this collector version", slog.String("config file version", confVersion), slog.String("collector version", Version))
+	return fmt.Errorf("config file version %q is not compatible with collector version %s", confVersion, Version)
 }
 
-// mustReadConfig reads the config file or exits the program is this fails
-func mustReadConfig(configFileName string) tomlConfig {
+// readConfig reads and validates the config file, returning an error if it fails.
+// This is used for config reloads (SIGHUP) where a failure should be logged and
+// recovered from rather than causing the process to exit.
+func readConfig(configFileName string) (tomlConfig, error) {
 	var conf tomlConfig
 	conf.Global.MaxRetries = defaultMaxRetries
 	conf.Global.ProcessorMaxRetries = processorDefaultMaxRetries
@@ -150,11 +150,11 @@ func mustReadConfig(configFileName string) tomlConfig {
 
 	_, err := toml.DecodeFile(configFileName, &conf)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: failed to read config file %s\nError: %v\nExiting\n", os.Args[0], configFileName, err.Error())
-		os.Exit(1)
+		return tomlConfig{}, fmt.Errorf("failed to read config file %s: %w", configFileName, err)
 	}
-	// Validate config version
-	validateConfigVersion(conf.Global.Version)
+	if err := validateConfigVersion(conf.Global.Version); err != nil {
+		return tomlConfig{}, err
+	}
 
 	// If retries is 0 or negative, make it effectively infinite
 	if conf.Global.MaxRetries <= 0 {
@@ -164,6 +164,17 @@ func mustReadConfig(configFileName string) tomlConfig {
 		conf.Global.ProcessorMaxRetries = math.MaxInt
 	}
 
+	return conf, nil
+}
+
+// mustReadConfig reads the config file or exits the program if this fails.
+// Used at startup where a bad config is unrecoverable.
+func mustReadConfig(configFileName string) tomlConfig {
+	conf, err := readConfig(configFileName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\nExiting\n", os.Args[0], err)
+		os.Exit(1)
+	}
 	return conf
 }
 
