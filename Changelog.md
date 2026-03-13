@@ -1,6 +1,13 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.38 Fri Mar 13 2026
+
+### New Features
+
+- Add config reload on SIGHUP and config file change
+  - On Unix, sending SIGHUP triggers a config reload. On all platforms, gostats now watches the config file for modifications and reloads automatically when a change is detected. Multiple rapid writes are coalesced with a short debounce so that editors doing atomic saves produce only one reload. If the updated config cannot be parsed, an error is logged and the collector continues running with the previous configuration.
+
 ## 0.37 Thu Mar 12 09:42:04 2026 -0700
 
 ### New Features

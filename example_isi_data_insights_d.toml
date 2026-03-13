@@ -4,7 +4,7 @@
 # This field ties the config file syntax/format back to the collector version.
 # This allows the collector to flag breaking changes where the config file needs to be updated.
 # string optionally starting with "v"/"V" e.g., "v0.10", or "0.10"
-version = "v0.37"
+version = "v0.38"
 
 # Pluggable back end support
 # Supported back ends are "influxdb", "influxdbv2", "prometheus" and "discard"
