@@ -1,0 +1,124 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "protocol": {
+      "items": {
+        "properties": {
+          "class": {
+            "description": "The class of the operation.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "in": {
+            "description": "Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_avg": {
+            "description": "Average input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_max": {
+            "description": "Maximum input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_min": {
+            "description": "Minimum input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_standard_dev": {
+            "description": "Standard deviation for input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "node": {
+            "description": "The node on which the operation was performed.", 
+            "required": true, 
+            "type": [
+              "integer", 
+              "null"
+            ]
+          }, 
+          "operation": {
+            "description": "The operation performed.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "operation_count": {
+            "description": "The number of times an operation has been performed.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "operation_rate": {
+            "description": "The rate (in ops/second) at which an operation has been performed.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out": {
+            "description": "Rate of output (in bytes/second) for an operation since the last time isi statistics collected the data.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_avg": {
+            "description": "Average output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_max": {
+            "description": "Maximum output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_min": {
+            "description": "Minimum output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_standard_dev": {
+            "description": "Standard deviation for output (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "protocol": {
+            "description": "The protocol of the operation.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds of the request.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "time_avg": {
+            "description": "The average elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time_max": {
+            "description": "The maximum elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time_min": {
+            "description": "The minimum elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time_standard_dev": {
+            "description": "The standard deviation time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

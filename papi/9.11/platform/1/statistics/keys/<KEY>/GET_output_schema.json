@@ -1,0 +1,115 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "keys": {
+      "items": {
+        "properties": {
+          "aggregation_type": {
+            "description": "Type of aggregation used in down-sampling.", 
+            "enum": [
+              "last", 
+              "min", 
+              "max", 
+              "avg", 
+              "sum", 
+              "custom"
+            ], 
+            "required": true, 
+            "type": "string"
+          }, 
+          "base_name": {
+            "description": "Name of key this keys is derived from, if any.", 
+            "required": true, 
+            "type": [
+              "null", 
+              "string"
+            ]
+          }, 
+          "default_cache_time": {
+            "description": "Default time in seconds system will used cached values.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "description": {
+            "description": "Description of statistics key.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "key": {
+            "description": "Key name.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "policies": {
+            "description": "List of effective history policies for key.", 
+            "items": {
+              "properties": {
+                "interval": {
+                  "description": "Time between samples in seconds.", 
+                  "required": true, 
+                  "type": "integer"
+                }, 
+                "persistent": {
+                  "description": "If true, history is persisted.", 
+                  "required": true, 
+                  "type": "boolean"
+                }, 
+                "retention": {
+                  "description": "Time in seconds to keep data.", 
+                  "required": true, 
+                  "type": "integer"
+                }
+              }, 
+              "type": "object"
+            }, 
+            "required": true, 
+            "type": [
+              "null", 
+              "array"
+            ]
+          }, 
+          "policy_cache_time": {
+            "description": "Configured time in seconds system will used cached values.", 
+            "required": true, 
+            "type": [
+              "null", 
+              "integer"
+            ]
+          }, 
+          "real_name": {
+            "description": "Name of real key if this is an alias.", 
+            "required": true, 
+            "type": [
+              "null", 
+              "string"
+            ]
+          }, 
+          "scope": {
+            "description": "Scope of key.", 
+            "enum": [
+              "cluster", 
+              "node"
+            ], 
+            "required": true, 
+            "type": "string"
+          }, 
+          "type": {
+            "description": "Data type of key values.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "units": {
+            "description": "Units of key values.", 
+            "required": true, 
+            "type": "string"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

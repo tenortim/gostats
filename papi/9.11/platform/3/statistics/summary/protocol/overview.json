@@ -1,0 +1,45 @@
+{
+  "GET_args": {
+    "description": "", 
+    "properties": {
+      "classes": {
+        "description": "A comma separated list. Default is all. (other | write | read | create | delete | namespace_read | namespace_write | file_state | session_state).", 
+        "type": "string"
+      }, 
+      "degraded": {
+        "description": "Continue to report if some nodes do not respond.", 
+        "type": "boolean"
+      }, 
+      "nodes": {
+        "description": "A comma separated list. Specify node(s) for which statistics should be reported. Default is all. Zero (0) should be passed in as the sole argument to indicate local.", 
+        "type": "string"
+      }, 
+      "operations": {
+        "description": "Specify operation(s) for which statistics should be reported (See the cli command: 'isi statistics list operations', for a total list). Default is all. ", 
+        "type": "string"
+      }, 
+      "protocols": {
+        "description": "A comma separated list. Default is all external protocols. (nfs3 | smb1 | nlm | ftp | http | siq | smb2 | nfs4 | nfsrdma | nfs4rdma | papi | jobd | irp | lsass_in | lsass_out | hdfs | s3 | all | internal | external)", 
+        "type": "string"
+      }, 
+      "sort": {
+        "description": "Sort data by the specified comma-separated field(s). (time | operation_count | operation_rate | in_max | in_min | in | in_avg | in_standard_dev | out_max | out_min | out | out_avg | out_standard_dev | time_max | time_min | time_avg | time_standard_dev | node | protocol | class | operation). Prepend 'asc:' or 'desc:' to a field to change the sort direction. ", 
+        "type": "string"
+      }, 
+      "timeout": {
+        "description": "Timeout remote commands after NUM seconds, where NUM is the integer passed to the argument.", 
+        "type": "integer"
+      }, 
+      "totalby": {
+        "description": "A comma separated list specifying what should be unique. (node | protocol | class | operation). Aggregation is performed over all the fields not specified in the list.", 
+        "type": "string"
+      }, 
+      "zero": {
+        "description": "Show table entries with no values.", 
+        "type": "boolean"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "Protocol mode displays cluster usage statistics organized by communication protocol."
+}

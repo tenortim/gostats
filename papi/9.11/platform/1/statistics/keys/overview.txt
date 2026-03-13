@@ -1,0 +1,203 @@
+Resource URL: /platform/<<version=1>>/statistics/keys
+()
+    Overview: This resource lists all available statistics keys. Each <KEY> can
+              be used in conjunction with
+              /1/statistics/[current|history]?keys=<KEY>. The keys may change
+              with a system update and the list of available keys may change
+              with a system update.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: List meta-data for matching keys.
+()
+URL: GET /platform/<<version=1>>/statistics/keys
+
+Query arguments:
+    count=<boolean> Only count matching keys, do not return meta-data.
+    limit=<integer> Return no more than this many results at once (see resume).
+queryable=<boolean> Only list keys that can/cannot be queries. Default is true.
+    resume=<string> Continue returning results from previous call using this
+                    token (token should come from the previous call, resume
+                    cannot be used with other options).
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "keys": {
+          "type": [
+            {
+              "minItems": 0, 
+              "items": {
+                "type": "object", 
+                "properties": {
+                  "policies": {
+                    "items": {
+                      "type": "object", 
+                      "properties": {
+                        "interval": {
+                          "required": true, 
+                          "type": "integer", 
+                          "description": "Time between samples in seconds."
+                        }, 
+                        "persistent": {
+                          "required": true, 
+                          "type": "boolean", 
+                          "description": "If true, history is persisted."
+                        }, 
+                        "retention": {
+                          "required": true, 
+                          "type": "integer", 
+                          "description": "Time in seconds to keep data."
+                        }
+                      }
+                    }, 
+                    "required": true, 
+                    "type": [
+                      "null", 
+                      "array"
+                    ], 
+                    "description": "List of effective history policies for key."
+                  }, 
+                  "base_name": {
+                    "required": true, 
+                    "type": [
+                      "null", 
+                      "string"
+                    ], 
+                    "description": "Name of key this keys is derived from, if any."
+                  }, 
+                  "policy_cache_time": {
+                    "required": true, 
+                    "type": [
+                      "null", 
+                      "integer"
+                    ], 
+                    "description": "Configured time in seconds system will used cached values."
+                  }, 
+                  "default_cache_time": {
+                    "required": true, 
+                    "type": "integer", 
+                    "description": "Default time in seconds system will used cached values."
+                  }, 
+                  "description": {
+                    "required": true, 
+                    "type": "string", 
+                    "description": "Description of statistics key."
+                  }, 
+                  "real_name": {
+                    "required": true, 
+                    "type": [
+                      "null", 
+                      "string"
+                    ], 
+                    "description": "Name of real key if this is an alias."
+                  }, 
+                  "key": {
+                    "required": true, 
+                    "type": "string", 
+                    "description": "Key name."
+                  }, 
+                  "units": {
+                    "required": true, 
+                    "type": "string", 
+                    "description": "Units of key values."
+                  }, 
+                  "scope": {
+                    "enum": [
+                      "cluster", 
+                      "node"
+                    ], 
+                    "type": "string", 
+                    "description": "Scope of key.", 
+                    "required": true
+                  }, 
+                  "type": {
+                    "required": true, 
+                    "type": "string", 
+                    "description": "Data type of key values."
+                  }, 
+                  "aggregation_type": {
+                    "enum": [
+                      "last", 
+                      "min", 
+                      "max", 
+                      "avg", 
+                      "sum", 
+                      "custom"
+                    ], 
+                    "type": "string", 
+                    "description": "Type of aggregation used in down-sampling.", 
+                    "required": true
+                  }
+                }
+              }, 
+              "type": "array", 
+              "maxItems": 18446744073709551615
+            }, 
+            {
+              "type": "null"
+            }
+          ]
+        }, 
+        "total": {
+          "minimum": 0, 
+          "type": "integer", 
+          "description": "Total number of items available.", 
+          "maximum": 18446744073709551615
+        }, 
+        "resume": {
+          "minLength": 0, 
+          "type": [
+            "string", 
+            "null"
+          ], 
+          "description": "Provide this token as the 'resume' query argument to continue listing results.", 
+          "maxLength": 8192
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/drive
+()
+    Overview: Drive mode shows performance by drive.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: 
+()
+URL: GET /platform/<<version=3>>/statistics/summary/drive
+
+Query arguments:
+     sort=<string> Sort data by the specified comma-separated field(s).
+                   (drive_id | type | xfers_in | bytes_in | xfer_size_in |
+                   xfers_out | bytes_out | xfer_size_out | access_latency |
+                   access_slow | iosched_latency | iosched_queue | busy |
+                   used_bytes_percent | used_inodes). Prepend 'asc:' or 'desc:'
+                   to a field to change the sort direction.
+degraded=<boolean> Continue to report if some nodes do not respond.
+     type=<string> Specify drive type(s) for which statistics should be
+                   reported.
+    nodes=<string> A comma separated list. Specify node(s) for which statistics
+                   should be reported. Default is all. Zero (0) should be
+                   passed in as the sole argument to indicate local.
+ timeout=<integer> Timeout remote commands after NUM seconds, where NUM is the
+                   integer passed to the argument.
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "drive": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "xfer_size_in": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average size of write operations."
+              }, 
+              "access_latency": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average operation latency."
+              }, 
+              "xfers_in": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate of write operations."
+              }, 
+              "iosched_latency": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average time spent in the I/O scheduler."
+              }, 
+              "bytes_in": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate of bytes written."
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds of the request."
+              }, 
+              "iosched_queue": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average length of the I/O scheduler queue."
+              }, 
+              "access_slow": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate of slow (long-latency) operations."
+              }, 
+              "xfers_out": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate of read operations."
+              }, 
+              "busy": {
+                "required": true, 
+                "type": "number", 
+                "description": "The percentage of time the drive was busy."
+              }, 
+              "used_inodes": {
+                "required": true, 
+                "type": "number", 
+                "description": "The number of inodes allocated on the drive."
+              }, 
+              "bytes_out": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate of bytes read."
+              }, 
+              "drive_id": {
+                "required": true, 
+                "type": "string", 
+                "description": "Drive ID LNN:bay."
+              }, 
+              "xfer_size_out": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average size of read operations."
+              }, 
+              "type": {
+                "required": true, 
+                "type": "string", 
+                "description": "The type of the drive."
+              }, 
+              "used_bytes_percent": {
+                "required": true, 
+                "type": "number", 
+                "description": "The percent of blocks used on the drive."
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

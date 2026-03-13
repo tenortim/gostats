@@ -1,0 +1,208 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/protocol
+()
+    Overview: Protocol mode displays cluster usage statistics organized by
+              communication protocol.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: 
+()
+URL: GET /platform/<<version=3>>/statistics/summary/protocol
+
+Query arguments:
+operations=<string> Specify operation(s) for which statistics should be
+                    reported (See the cli command: 'isi statistics list
+                    operations', for a total list). Default is all.
+      sort=<string> Sort data by the specified comma-separated field(s). (time
+                    | operation_count | operation_rate | in_max | in_min | in |
+                    in_avg | in_standard_dev | out_max | out_min | out |
+                    out_avg | out_standard_dev | time_max | time_min | time_avg
+                    | time_standard_dev | node | protocol | class | operation).
+                    Prepend 'asc:' or 'desc:' to a field to change the sort
+                    direction.
+   totalby=<string> A comma separated list specifying what should be unique.
+                    (node | protocol | class | operation). Aggregation is
+                    performed over all the fields not specified in the list.
+     zero=<boolean> Show table entries with no values.
+   classes=<string> A comma separated list. Default is all. (other | write |
+                    read | create | delete | namespace_read | namespace_write |
+                    file_state | session_state).
+  timeout=<integer> Timeout remote commands after NUM seconds, where NUM is the
+                    integer passed to the argument.
+ degraded=<boolean> Continue to report if some nodes do not respond.
+     nodes=<string> A comma separated list. Specify node(s) for which
+                    statistics should be reported. Default is all. Zero (0)
+                    should be passed in as the sole argument to indicate local.
+ protocols=<string> A comma separated list. Default is all external protocols.
+                    (nfs3 | smb1 | nlm | ftp | http | siq | smb2 | nfs4 |
+                    nfsrdma | nfs4rdma | papi | jobd | irp | lsass_in |
+                    lsass_out | hdfs | s3 | all | internal | external)
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "protocol": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "node": {
+                "required": true, 
+                "type": [
+                  "integer", 
+                  "null"
+                ], 
+                "description": "The node on which the operation was performed."
+              }, 
+              "in_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "Minimum input (received) bytes for an operation, in bytes."
+              }, 
+              "protocol": {
+                "required": true, 
+                "type": "string", 
+                "description": "The protocol of the operation."
+              }, 
+              "time_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "The minimum elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "time_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "time_standard_dev": {
+                "required": true, 
+                "type": "number", 
+                "description": "The standard deviation time (in microseconds) taken to complete an operation."
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds of the request."
+              }, 
+              "in_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "Maximum input (received) bytes for an operation, in bytes."
+              }, 
+              "out_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "Average output (sent) bytes for an operation, in bytes."
+              }, 
+              "operation_rate": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate (in ops/second) at which an operation has been performed."
+              }, 
+              "out_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "Maximum output (sent) bytes for an operation, in bytes."
+              }, 
+              "out_standard_dev": {
+                "required": true, 
+                "type": "number", 
+                "description": "Standard deviation for output (received) bytes for an operation, in bytes."
+              }, 
+              "out_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "Minimum output (sent) bytes for an operation, in bytes."
+              }, 
+              "in": {
+                "required": true, 
+                "type": "number", 
+                "description": "Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data."
+              }, 
+              "in_standard_dev": {
+                "required": true, 
+                "type": "number", 
+                "description": "Standard deviation for input (received) bytes for an operation, in bytes."
+              }, 
+              "time_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "The maximum elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "operation": {
+                "required": true, 
+                "type": "string", 
+                "description": "The operation performed."
+              }, 
+              "operation_count": {
+                "required": true, 
+                "type": "integer", 
+                "description": "The number of times an operation has been performed."
+              }, 
+              "class": {
+                "required": true, 
+                "type": "string", 
+                "description": "The class of the operation."
+              }, 
+              "in_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "Average input (received) bytes for an operation, in bytes."
+              }, 
+              "out": {
+                "required": true, 
+                "type": "number", 
+                "description": "Rate of output (in bytes/second) for an operation since the last time isi statistics collected the data."
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

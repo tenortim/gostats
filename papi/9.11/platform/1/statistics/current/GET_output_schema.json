@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "stats": {
+      "items": {
+        "properties": {
+          "devid": {
+            "description": "Devid of node of statistic or 0 for cluster scoped statistics.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "error": {
+            "description": "Key specific error string, if applicable.", 
+            "required": true, 
+            "type": [
+              "null", 
+              "string"
+            ]
+          }, 
+          "error_code": {
+            "description": "Key specific error number, if applicable.", 
+            "required": true, 
+            "type": [
+              "null", 
+              "integer"
+            ]
+          }, 
+          "key": {
+            "description": "Key name of statistic.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "node": {
+            "description": "The LNN of node, if requested.", 
+            "required": false, 
+            "type": "integer"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds that statistic was collected.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "value": {
+            "description": "Key dependent value.", 
+            "required": true, 
+            "type": "any"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

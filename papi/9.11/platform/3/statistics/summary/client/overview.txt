@@ -1,0 +1,262 @@
+Resource URL: /platform/<<version=3>>/statistics/summary/client
+()
+    Overview: The client mode displays cluster usage statistics organized
+              according to cluster hosts and users.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: 
+()
+URL: GET /platform/<<version=3>>/statistics/summary/client
+
+Query arguments:
+            sort=<string> Sort data by the specified comma-separated field(s).
+                          (num_operations | operation_rate | in_max | in_min |
+                          in | in_avg | out_max | out_min | out | out_avg |
+                          time_max | time_min | time_avg | node | protocol |
+                          class | user_id | user_name | local_addr | local_name
+                          | remote_addr | remote_name) Prepend 'asc:' or
+                          'desc:' to a field to change the sort direction.
+         totalby=<string> A comma separated list specifying what should be
+                          unique. (node | protocol | class | local_addr |
+                          local_name | remote_addr | remote_name | user_id |
+                          user_name | devid). Aggregation is performed over all
+                          the fields not specified in the list.
+      user_names=<string> A comma separated list. Only report statistics for
+                          operations requested by users with resolved names
+                          enumerated.
+remote_addresses=<string> A comma separated list. Only report statistics for
+                          operations requested by the remote clients with
+                          dotted-quad IP addresses enumerated.
+        numeric=<boolean> Do not resolve hostnames and usernames to their human
+                          readable form(s). Default is false.
+     local_names=<string> A comma separated list. Only report statistics for
+                          operations handled by the local hosts with resolved
+                          names enumerated.
+        user_ids=<string> A comma separated list. Only report statistics for
+                          operations requested by users with numeric UIDs
+                          enumerated.
+         classes=<string> A comma separated list. Default is all. (other |
+                          write | read | namespace_read | namespace_write)
+        timeout=<integer> Timeout remote commands after NUM seconds, where NUM
+                          is the integer passed to the argument.
+ local_addresses=<string> A comma separated list. Only report statistics for
+                          operations handled by the local hosts with
+                          dotted-quad IP addresses enumerated.
+       degraded=<boolean> Continue to report if some nodes do not respond.
+    remote_names=<string> A comma separated list. Only report statistics for
+                          operations requested by the remote clients with
+                          resolved names enumerated.
+           nodes=<string> A comma separated list. Specify node(s) for which
+                          statistics should be reported. Default is all. Zero
+                          (0) should be passed in as the sole argument to
+                          indicate local.
+       protocols=<string> A comma separated list. Default is all. (nfs3 | smb1
+                          | nlm | ftp | http | siq | smb2 | nfs4 | nfsrdma |
+                          nfs4rdma | papi | jobd | irp | lsass_in | lsass_out |
+                          hdfs | s3 | internal | external)
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "client": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "out_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "Average output (sent) bytes for an operation, in bytes."
+              }, 
+              "protocol": {
+                "required": true, 
+                "type": "string", 
+                "description": "The protocol of the operation."
+              }, 
+              "num_operations": {
+                "required": true, 
+                "type": "integer", 
+                "description": "The number of times an operation has been performed."
+              }, 
+              "in": {
+                "required": true, 
+                "type": "number", 
+                "description": "Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data."
+              }, 
+              "out": {
+                "required": true, 
+                "type": "number", 
+                "description": "Rate of output (in bytes/second) for an operation since the last time isi statistics collected the data."
+              }, 
+              "time_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "The average elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "time_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "The maximum elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "remote_addr": {
+                "required": true, 
+                "type": "string", 
+                "description": "The IP address (in dotted-quad form) of the host sending the operation request."
+              }, 
+              "local_addr": {
+                "required": true, 
+                "type": "string", 
+                "description": "The IP address (in dotted-quad form) of the host receiving the operation request."
+              }, 
+              "in_avg": {
+                "required": true, 
+                "type": "number", 
+                "description": "Average input (received) bytes for an operation, in bytes."
+              }, 
+              "node": {
+                "required": true, 
+                "type": "integer", 
+                "description": "The node on which the operation was performed."
+              }, 
+              "in_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "Minimum input (received) bytes for an operation, in bytes."
+              }, 
+              "local_name": {
+                "required": true, 
+                "type": "string", 
+                "description": "The resolved text name of the LocalAddr, if resolution can be performed."
+              }, 
+              "out_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "Minimum output (sent) bytes for an operation, in bytes."
+              }, 
+              "user": {
+                "required": false, 
+                "type": [
+                  {
+                    "type": "object", 
+                    "description": "Specifies properties for a persona, which consists of either a 'type' and a 'name' or an 'ID'.", 
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "user", 
+                          "group", 
+                          "wellknown"
+                        ], 
+                        "type": [
+                          "string", 
+                          "null"
+                        ], 
+                        "description": "Specifies the type of persona, which must be combined with a name."
+                      }, 
+                      "id": {
+                        "minLength": 0, 
+                        "type": "string", 
+                        "description": "Specifies the serialized form of a persona, which can be 'UID:0', 'USER:name', 'GID:0', 'GROUP:wheel', or 'SID:S-1-1'.", 
+                        "maxLength": 261
+                      }, 
+                      "name": {
+                        "minLength": 0, 
+                        "type": [
+                          "string", 
+                          "null"
+                        ], 
+                        "description": "Specifies the persona name, which must be combined with a type.", 
+                        "maxLength": 255
+                      }
+                    }
+                  }
+                ], 
+                "description": "User issuing the operation."
+              }, 
+              "time_min": {
+                "required": true, 
+                "type": "number", 
+                "description": "The minimum elapsed time (in microseconds) taken to complete an operation."
+              }, 
+              "remote_name": {
+                "required": true, 
+                "type": "string", 
+                "description": "The resolved text name of the RemoteAddr, if resolution can be performed."
+              }, 
+              "class": {
+                "required": true, 
+                "type": "string", 
+                "description": "The class of the operation."
+              }, 
+              "in_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "Maximum input (received) bytes for an operation, in bytes."
+              }, 
+              "operation_rate": {
+                "required": true, 
+                "type": "number", 
+                "description": "The rate (in ops/second) at which an operation has been performed."
+              }, 
+              "out_max": {
+                "required": true, 
+                "type": "number", 
+                "description": "Maximum output (sent) bytes for an operation, in bytes."
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds of the request."
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

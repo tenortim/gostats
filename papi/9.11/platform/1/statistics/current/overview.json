@@ -1,0 +1,69 @@
+{
+  "GET_args": {
+    "description": "Retrieve stats.", 
+    "properties": {
+      "degraded": {
+        "description": "If true, try to continue even if some stats are unavailable. In this case, errors will be present in the per-key returned data.", 
+        "type": "boolean"
+      }, 
+      "desc_info": {
+        "description": "Shows the description for the specified key(s).", 
+        "type": "boolean"
+      }, 
+      "devid": {
+        "description": "Node devid to query. Either an <integer> or \"all\". Can be used more than one time to query multiple nodes. \"all\" queries all up nodes. 0 means query the local node. For \"cluster\" scoped keys, in any devid including 0 can be used.", 
+        "items": {
+          "type": "string"
+        }, 
+        "type": "array"
+      }, 
+      "key": {
+        "description": "One key name. Can be used more than one time to query multiple keys. Also works with 'keys' arguments.", 
+        "items": {
+          "type": "string"
+        }, 
+        "type": "array"
+      }, 
+      "keys": {
+        "description": "Multiple key names. Can be a comma separated list, or can be used more than one time to make queries for multiple keys. May be used in conjunction with 'substr'. Also works with 'key' arguments.", 
+        "items": {
+          "type": "string"
+        }, 
+        "type": "array"
+      }, 
+      "nodes": {
+        "description": "Specify node(s) for which statistics should be reported. One or more comma separated <integer(s)> specifying which node(s) to query, or \"all\". Specifying more than one node may have unspecified results for keys that begin with \"cluster\".", 
+        "items": {
+          "type": "string"
+        }, 
+        "type": "array"
+      }, 
+      "raw": {
+        "description": "Causes the output to be in hex format. For internal use only, please do not use this.", 
+        "type": "boolean"
+      }, 
+      "show_nodes": {
+        "description": "Shows the logical node number or LNN in addition to the devid.", 
+        "type": "boolean"
+      }, 
+      "stale": {
+        "description": "For internal use only, please do not use this.", 
+        "type": "boolean"
+      }, 
+      "substr": {
+        "description": "Used in conjunction with the 'keys' argument, alters the behavior of keys. Makes the 'keys' arg perform a partial match. Defaults to false.", 
+        "type": "boolean"
+      }, 
+      "timeout": {
+        "description": "Time in seconds to wait for results from remote nodes.", 
+        "type": "integer"
+      }, 
+      "type_info": {
+        "description": "The type ID is used by internal services. For internal use only, please do not use this.", 
+        "type": "boolean"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "This resource allows querying of OneFS current statistics. Current statistics are the most currently available metrics to the time of the request. For a list of available statistics keys with descriptions, see the /1/statistics/keys or /1/statistics/keys/<KEY> resources. Each statistic may be cached for some number of seconds; requerying within this cache period will return the original (cached) value for the statistic."
+}

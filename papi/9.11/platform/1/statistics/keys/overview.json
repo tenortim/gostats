@@ -1,0 +1,29 @@
+{
+  "GET_args": {
+    "description": "List meta-data for matching keys.", 
+    "properties": {
+      "count": {
+        "description": "Only count matching keys, do not return meta-data.", 
+        "type": "boolean"
+      }, 
+      "limit": {
+        "description": "Return no more than this many results at once (see resume).", 
+        "maximum": 4294967295, 
+        "minimum": 1, 
+        "type": "integer"
+      }, 
+      "queryable": {
+        "description": "Only list keys that can/cannot be queries. Default is true.", 
+        "type": "boolean"
+      }, 
+      "resume": {
+        "description": "Continue returning results from previous call using this token (token should come from the previous call, resume cannot be used with other options).", 
+        "maxLength": 8192, 
+        "minLength": 0, 
+        "type": "string"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "This resource lists all available statistics keys. Each <KEY> can be used in conjunction with /1/statistics/[current|history]?keys=<KEY>. The keys may change with a system update and the list of available keys may change with a system update."
+}

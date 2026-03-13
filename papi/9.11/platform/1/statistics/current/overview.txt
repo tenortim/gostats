@@ -1,0 +1,150 @@
+Resource URL: /platform/<<version=1>>/statistics/current
+()
+    Overview: This resource allows querying of OneFS current statistics.
+              Current statistics are the most currently available metrics to
+              the time of the request. For a list of available statistics keys
+              with descriptions, see the /1/statistics/keys or
+              /1/statistics/keys/<KEY> resources. Each statistic may be cached
+              for some number of seconds; requerying within this cache period
+              will return the original (cached) value for the statistic.
+()
+     Methods: GET
+
+********************************************************************************
+
+Method GET: Retrieve stats.
+()
+URL: GET /platform/<<version=1>>/statistics/current
+
+Query arguments:
+   timeout=<integer> Time in seconds to wait for results from remote nodes.
+show_nodes=<boolean> Shows the logical node number or LNN in addition to the
+                     devid.
+       keys=<string> Multiple key names. Can be a comma separated list, or can
+                     be used more than one time to make queries for multiple
+                     keys. May be used in conjunction with 'substr'. Also works
+                     with 'key' arguments.
+      devid=<string> Node devid to query. Either an <integer> or "all". Can be
+                     used more than one time to query multiple nodes. "all"
+                     queries all up nodes. 0 means query the local node. For
+                     "cluster" scoped keys, in any devid including 0 can be
+                     used.
+    substr=<boolean> Used in conjunction with the 'keys' argument, alters the
+                     behavior of keys. Makes the 'keys' arg perform a partial
+                     match. Defaults to false.
+     stale=<boolean> For internal use only, please do not use this.
+ type_info=<boolean> The type ID is used by internal services. For internal use
+                     only, please do not use this.
+       raw=<boolean> Causes the output to be in hex format. For internal use
+                     only, please do not use this.
+        key=<string> One key name. Can be used more than one time to query
+                     multiple keys. Also works with 'keys' arguments.
+  degraded=<boolean> If true, try to continue even if some stats are
+                     unavailable. In this case, errors will be present in the
+                     per-key returned data.
+      nodes=<string> Specify node(s) for which statistics should be reported.
+                     One or more comma separated <integer(s)> specifying which
+                     node(s) to query, or "all". Specifying more than one node
+                     may have unspecified results for keys that begin with
+                     "cluster".
+ desc_info=<boolean> Shows the description for the specified key(s).
+
+GET response body schema:
+{
+  "type": [
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "description": "A list of errors that may be returned.", 
+      "properties": {
+        "errors": {
+          "minItems": 1, 
+          "items": {
+            "additionalProperties": false, 
+            "type": "object", 
+            "description": "An object describing a single error.", 
+            "properties": {
+              "field": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The field with the error if applicable.", 
+                "maxLength": 8192
+              }, 
+              "message": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error message.", 
+                "maxLength": 8192
+              }, 
+              "code": {
+                "minLength": 1, 
+                "type": "string", 
+                "description": "The error code.", 
+                "maxLength": 8192
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 65535
+        }
+      }
+    }, 
+    {
+      "additionalProperties": false, 
+      "type": "object", 
+      "properties": {
+        "stats": {
+          "minItems": 0, 
+          "items": {
+            "type": "object", 
+            "properties": {
+              "node": {
+                "required": false, 
+                "type": "integer", 
+                "description": "The LNN of node, if requested."
+              }, 
+              "error": {
+                "required": true, 
+                "type": [
+                  "null", 
+                  "string"
+                ], 
+                "description": "Key specific error string, if applicable."
+              }, 
+              "devid": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Devid of node of statistic or 0 for cluster scoped statistics."
+              }, 
+              "value": {
+                "required": true, 
+                "type": "any", 
+                "description": "Key dependent value."
+              }, 
+              "key": {
+                "required": true, 
+                "type": "string", 
+                "description": "Key name of statistic."
+              }, 
+              "time": {
+                "required": true, 
+                "type": "integer", 
+                "description": "Unix Epoch time in seconds that statistic was collected."
+              }, 
+              "error_code": {
+                "required": true, 
+                "type": [
+                  "null", 
+                  "integer"
+                ], 
+                "description": "Key specific error number, if applicable."
+              }
+            }
+          }, 
+          "type": "array", 
+          "maxItems": 18446744073709551615
+        }
+      }
+    }
+  ]
+}

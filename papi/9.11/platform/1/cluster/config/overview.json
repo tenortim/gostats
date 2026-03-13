@@ -1,0 +1,7 @@
+{
+  "GET_args": {
+    "description": "Retrieve the cluster information.", 
+    "type": "object"
+  }, 
+  "resource_description": "This resource contains general information about the cluster."
+}

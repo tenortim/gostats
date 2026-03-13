@@ -1,0 +1,96 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "drive": {
+      "items": {
+        "properties": {
+          "access_latency": {
+            "description": "The average operation latency.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "access_slow": {
+            "description": "The rate of slow (long-latency) operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "busy": {
+            "description": "The percentage of time the drive was busy.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "bytes_in": {
+            "description": "The rate of bytes written.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "bytes_out": {
+            "description": "The rate of bytes read.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "drive_id": {
+            "description": "Drive ID LNN:bay.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "iosched_latency": {
+            "description": "The average time spent in the I/O scheduler.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "iosched_queue": {
+            "description": "The average length of the I/O scheduler queue.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds of the request.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "type": {
+            "description": "The type of the drive.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "used_bytes_percent": {
+            "description": "The percent of blocks used on the drive.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "used_inodes": {
+            "description": "The number of inodes allocated on the drive.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "xfer_size_in": {
+            "description": "The average size of write operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "xfer_size_out": {
+            "description": "The average size of read operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "xfers_in": {
+            "description": "The rate of write operations.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "xfers_out": {
+            "description": "The rate of read operations.", 
+            "required": true, 
+            "type": "number"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}

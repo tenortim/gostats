@@ -1,0 +1,65 @@
+{
+  "GET_args": {
+    "description": "", 
+    "properties": {
+      "classes": {
+        "description": "A comma separated list. Default is all. (other | write | read | namespace_read | namespace_write)", 
+        "type": "string"
+      }, 
+      "degraded": {
+        "description": "Continue to report if some nodes do not respond.", 
+        "type": "boolean"
+      }, 
+      "local_addresses": {
+        "description": "A comma separated list. Only report statistics for operations handled by the local hosts with dotted-quad IP addresses enumerated. ", 
+        "type": "string"
+      }, 
+      "local_names": {
+        "description": "A comma separated list. Only report statistics for operations handled by the local hosts with resolved names enumerated. ", 
+        "type": "string"
+      }, 
+      "nodes": {
+        "description": "A comma separated list. Specify node(s) for which statistics should be reported. Default is all. Zero (0) should be passed in as the sole argument to indicate local.", 
+        "type": "string"
+      }, 
+      "numeric": {
+        "description": "Do not resolve hostnames and usernames to their human readable form(s). Default is false. ", 
+        "type": "boolean"
+      }, 
+      "protocols": {
+        "description": "A comma separated list. Default is all. (nfs3 | smb1 | nlm | ftp | http | siq | smb2 | nfs4 | nfsrdma | nfs4rdma | papi | jobd | irp | lsass_in | lsass_out | hdfs | s3 | internal | external)", 
+        "type": "string"
+      }, 
+      "remote_addresses": {
+        "description": "A comma separated list. Only report statistics for operations requested by the remote clients with dotted-quad IP addresses enumerated. ", 
+        "type": "string"
+      }, 
+      "remote_names": {
+        "description": "A comma separated list. Only report statistics for operations requested by the remote clients with resolved names enumerated. ", 
+        "type": "string"
+      }, 
+      "sort": {
+        "description": "Sort data by the specified comma-separated field(s). (num_operations | operation_rate | in_max | in_min | in | in_avg | out_max | out_min | out | out_avg | time_max | time_min | time_avg | node | protocol | class | user_id | user_name | local_addr | local_name | remote_addr | remote_name) Prepend 'asc:' or 'desc:' to a field to change the sort direction. ", 
+        "type": "string"
+      }, 
+      "timeout": {
+        "description": "Timeout remote commands after NUM seconds, where NUM is the integer passed to the argument.", 
+        "type": "integer"
+      }, 
+      "totalby": {
+        "description": "A comma separated list specifying what should be unique. (node | protocol | class | local_addr | local_name | remote_addr | remote_name | user_id | user_name | devid). Aggregation is performed over all the fields not specified in the list.", 
+        "type": "string"
+      }, 
+      "user_ids": {
+        "description": "A comma separated list. Only report statistics for operations requested by users with numeric UIDs enumerated. ", 
+        "type": "string"
+      }, 
+      "user_names": {
+        "description": "A comma separated list. Only report statistics for operations requested by users with resolved names enumerated. ", 
+        "type": "string"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "The client mode displays cluster usage statistics organized according to cluster hosts and users."
+}

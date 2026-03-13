@@ -1,0 +1,29 @@
+{
+  "GET_args": {
+    "description": "", 
+    "properties": {
+      "degraded": {
+        "description": "Continue to report if some nodes do not respond.", 
+        "type": "boolean"
+      }, 
+      "nodes": {
+        "description": "A comma separated list. Specify node(s) for which statistics should be reported. Default is all. Zero (0) should be passed in as the sole argument to indicate local.", 
+        "type": "string"
+      }, 
+      "sort": {
+        "description": "Sort data by the specified comma-separated field(s). (drive_id | type | xfers_in | bytes_in | xfer_size_in | xfers_out | bytes_out | xfer_size_out | access_latency | access_slow | iosched_latency | iosched_queue | busy | used_bytes_percent | used_inodes). Prepend 'asc:' or 'desc:' to a field to change the sort direction. ", 
+        "type": "string"
+      }, 
+      "timeout": {
+        "description": "Timeout remote commands after NUM seconds, where NUM is the integer passed to the argument.", 
+        "type": "integer"
+      }, 
+      "type": {
+        "description": "Specify drive type(s) for which statistics should be reported.", 
+        "type": "string"
+      }
+    }, 
+    "type": "object"
+  }, 
+  "resource_description": "Drive mode shows performance by drive."
+}

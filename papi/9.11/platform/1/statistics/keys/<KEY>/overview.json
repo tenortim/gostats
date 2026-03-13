@@ -1,0 +1,7 @@
+{
+  "GET_args": {
+    "description": "List key meta-data.", 
+    "type": "object"
+  }, 
+  "resource_description": "This resource applies the standard collection item pattern to individual statistics keys.  KEY in the resource path is the key name."
+}

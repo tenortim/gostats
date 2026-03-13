@@ -1,0 +1,132 @@
+{
+  "description": "General cluster information.", 
+  "properties": {
+    "description": {
+      "description": "Customer configurable description.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "devices": {
+      "items": {
+        "properties": {
+          "devid": {
+            "description": "Device ID.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "guid": {
+            "description": "Device GUID.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "lnn": {
+            "description": "Device logical node number.", 
+            "required": true, 
+            "type": "integer"
+          }
+        }, 
+        "type": "object"
+      }, 
+      "required": true, 
+      "type": "array"
+    }, 
+    "encoding": {
+      "description": "Default encoding.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "guid": {
+      "description": "Cluster GUID.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "is_compliance": {
+      "description": "If true, the cluster is in compliance mode. Compliance mode clusters do not allow root access and have stricter WORM (Write Once Read Many) features for retaining data in compliance with U.S. Securities and Exchange Commission rule 17a-4.", 
+      "required": true, 
+      "type": "boolean"
+    }, 
+    "is_rolling_upgrade": {
+      "description": "If true, the cluster is currently performing a rolling upgrade. A false value means no upgrade is occurring or that the upgrade status cannot be determined.", 
+      "required": true, 
+      "type": "boolean"
+    }, 
+    "join_mode": {
+      "description": "Node join mode: 'manual' or 'secure'.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "local_devid": {
+      "description": "Device ID of the queried node.", 
+      "required": true, 
+      "type": "integer"
+    }, 
+    "local_lnn": {
+      "description": "Device logical node number of the queried node.", 
+      "required": true, 
+      "type": "integer"
+    }, 
+    "local_serial": {
+      "description": "Device serial number of the queried node.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "name": {
+      "description": "Cluster name.", 
+      "required": true, 
+      "type": "string"
+    }, 
+    "onefs_version": {
+      "properties": {
+        "build": {
+          "description": "OneFS build string.", 
+          "required": true, 
+          "type": "string"
+        }, 
+        "release": {
+          "description": "Kernel release number.", 
+          "required": true, 
+          "type": "string"
+        }, 
+        "revision": {
+          "description": "OneFS build number.", 
+          "required": true, 
+          "type": "string"
+        }, 
+        "type": {
+          "description": "Kernel release type.", 
+          "required": true, 
+          "type": "string"
+        }, 
+        "version": {
+          "description": "Kernel full version information.", 
+          "required": true, 
+          "type": "string"
+        }
+      }, 
+      "type": "object"
+    }, 
+    "timezone": {
+      "description": "The cluster timezone settings.", 
+      "properties": {
+        "abbreviation": {
+          "description": "Timezone abbreviation.", 
+          "type": "string"
+        }, 
+        "custom": {
+          "description": "Customer timezone information.", 
+          "type": "string"
+        }, 
+        "name": {
+          "description": "Timezone full name.", 
+          "type": "string"
+        }, 
+        "path": {
+          "description": "Timezone hierarchical name.", 
+          "type": "string"
+        }
+      }, 
+      "type": "object"
+    }
+  }, 
+  "type": "object"
+}

@@ -1,0 +1,160 @@
+{
+  "additionalProperties": false, 
+  "properties": {
+    "client": {
+      "items": {
+        "properties": {
+          "class": {
+            "description": "The class of the operation.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "in": {
+            "description": "Rate of input (in bytes/second) for an operation since the last time isi statistics collected the data.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_avg": {
+            "description": "Average input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_max": {
+            "description": "Maximum input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "in_min": {
+            "description": "Minimum input (received) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "local_addr": {
+            "description": "The IP address (in dotted-quad form) of the host receiving the operation request.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "local_name": {
+            "description": "The resolved text name of the LocalAddr, if resolution can be performed.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "node": {
+            "description": "The node on which the operation was performed.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "num_operations": {
+            "description": "The number of times an operation has been performed.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "operation_rate": {
+            "description": "The rate (in ops/second) at which an operation has been performed.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out": {
+            "description": "Rate of output (in bytes/second) for an operation since the last time isi statistics collected the data.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_avg": {
+            "description": "Average output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_max": {
+            "description": "Maximum output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "out_min": {
+            "description": "Minimum output (sent) bytes for an operation, in bytes.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "protocol": {
+            "description": "The protocol of the operation.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "remote_addr": {
+            "description": "The IP address (in dotted-quad form) of the host sending the operation request.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "remote_name": {
+            "description": "The resolved text name of the RemoteAddr, if resolution can be performed.", 
+            "required": true, 
+            "type": "string"
+          }, 
+          "time": {
+            "description": "Unix Epoch time in seconds of the request.", 
+            "required": true, 
+            "type": "integer"
+          }, 
+          "time_avg": {
+            "description": "The average elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time_max": {
+            "description": "The maximum elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "time_min": {
+            "description": "The minimum elapsed time (in microseconds) taken to complete an operation.", 
+            "required": true, 
+            "type": "number"
+          }, 
+          "user": {
+            "description": "User issuing the operation.", 
+            "required": false, 
+            "type": [
+              {
+                "description": "Specifies properties for a persona, which consists of either a 'type' and a 'name' or an 'ID'.", 
+                "properties": {
+                  "id": {
+                    "description": "Specifies the serialized form of a persona, which can be 'UID:0', 'USER:name', 'GID:0', 'GROUP:wheel', or 'SID:S-1-1'.", 
+                    "maxLength": 261, 
+                    "minLength": 0, 
+                    "type": "string"
+                  }, 
+                  "name": {
+                    "description": "Specifies the persona name, which must be combined with a type.", 
+                    "maxLength": 255, 
+                    "minLength": 0, 
+                    "type": [
+                      "string", 
+                      "null"
+                    ]
+                  }, 
+                  "type": {
+                    "description": "Specifies the type of persona, which must be combined with a name.", 
+                    "enum": [
+                      "user", 
+                      "group", 
+                      "wellknown"
+                    ], 
+                    "type": [
+                      "string", 
+                      "null"
+                    ]
+                  }
+                }, 
+                "type": "object"
+              }
+            ]
+          }
+        }, 
+        "type": "object"
+      }, 
+      "maxItems": 18446744073709551615, 
+      "minItems": 0, 
+      "type": "array"
+    }
+  }, 
+  "type": "object"
+}
