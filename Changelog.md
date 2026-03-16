@@ -1,6 +1,13 @@
 <!-- markdownlint-disable MD024 -->
 # Changelog
 
+## 0.39 Mon Mar 16 2026
+
+### Bug Fixes
+
+- Add HTTPS/TLS support for InfluxDB v1 and v2 backends
+  - Both backends hardcoded `http://` with no way to use a secure connection. Add optional `use_ssl` (switches to `https://`) and `skip_ssl_verify` (disables certificate verification, useful for self-signed certs) to both the `[influxdb]` and `[influxdbv2]` config stanzas. Both default to `false` so existing configs are unaffected.
+
 ## 0.38 Fri Mar 13 2026
 
 ### New Features

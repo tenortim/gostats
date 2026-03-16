@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,7 +29,11 @@ func (s *InfluxDBv2Sink) Init(ctx context.Context, cluster string, config *tomlC
 	s.cluster = cluster
 	var err error
 	ic := config.InfluxDBv2
-	url := "http://" + ic.Host + ":" + ic.Port
+	scheme := "http"
+	if ic.UseSSL {
+		scheme = "https"
+	}
+	url := scheme + "://" + ic.Host + ":" + ic.Port
 
 	token := ic.Token
 	if token == "" {
@@ -38,7 +43,11 @@ func (s *InfluxDBv2Sink) Init(ctx context.Context, cluster string, config *tomlC
 	if err != nil {
 		return fmt.Errorf("unable to retrieve InfluxDBv2 token from environment: %w", err)
 	}
-	client := influxdb2.NewClient(url, token)
+	opts := influxdb2.DefaultOptions()
+	if ic.InsecureSkipVerify {
+		opts.SetTLSConfig(&tls.Config{InsecureSkipVerify: true}) //nolint:gosec
+	}
+	client := influxdb2.NewClientWithOptions(url, token, opts)
 	
 	// ping the database to ensure we can connect
 	pingCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

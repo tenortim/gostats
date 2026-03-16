@@ -52,7 +52,7 @@ The current version of gostats requires Golang version **1.24** or higher to bui
 * If you wish to use Prometheus as the backend target, configure it in the "global" section of the config file and add a "prometheus_port" to each configured cluster stanza. This will spawn a Prometheus HTTP metrics listener on the configured port.
 
 Additional config notes:
-* The config file must be versioned (see the example config). Current collector versions accept config versions 0.31 through 0.38.
+* The config file must be versioned (see the example config). Current collector versions accept config versions 0.31 through 0.39.
 * Password/token fields may reference environment variables by using the `$env:VARNAME` prefix in the TOML; gostats will replace it at runtime.
 ## Customizing the connector
 

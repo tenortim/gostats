@@ -59,21 +59,25 @@ type loggingConfig struct {
 
 // influxDBConfig defines the InfluxDB settings in the config file
 type influxDBConfig struct {
-	Host          string `toml:"host"`
-	Port          string `toml:"port"`
-	Database      string `toml:"database"`
-	Authenticated bool   `toml:"authenticated"`
-	Username      string `toml:"username"`
-	Password      string `toml:"password"`
+	Host               string `toml:"host"`
+	Port               string `toml:"port"`
+	Database           string `toml:"database"`
+	Authenticated      bool   `toml:"authenticated"`
+	Username           string `toml:"username"`
+	Password           string `toml:"password"`
+	UseSSL             bool   `toml:"use_ssl"`         // connect via https instead of http
+	InsecureSkipVerify bool   `toml:"skip_ssl_verify"` // skip TLS certificate verification
 }
 
 // influxDBv2Config defines the InfluxDBv2 settings in the config file
 type influxDBv2Config struct {
-	Host   string `toml:"host"`
-	Port   string `toml:"port"`
-	Org    string `toml:"org"`
-	Bucket string `toml:"bucket"`
-	Token  string `toml:"access_token"`
+	Host               string `toml:"host"`
+	Port               string `toml:"port"`
+	Org                string `toml:"org"`
+	Bucket             string `toml:"bucket"`
+	Token              string `toml:"access_token"`
+	UseSSL             bool   `toml:"use_ssl"`         // connect via https instead of http
+	InsecureSkipVerify bool   `toml:"skip_ssl_verify"` // skip TLS certificate verification
 }
 
 // prometheusConfig defines the Prometheus settings in the config file
@@ -131,7 +135,7 @@ func validateConfigVersion(confVersion string) error {
 	v := strings.TrimLeft(confVersion, "vV")
 	switch v {
 	// last breaking change was the major logging rewrite in v0.31
-	case "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37", "0.38":
+	case "0.31", "0.32", "0.33", "0.34", "0.35", "0.36", "0.37", "0.38", "0.39":
 		return nil
 	}
 	return fmt.Errorf("config file version %q is not compatible with collector version %s", confVersion, Version)

@@ -27,7 +27,11 @@ func (s *InfluxDBSink) Init(_ context.Context, cluster string, config *tomlConfi
 	var username, password string
 	var err error
 	ic := config.InfluxDB
-	url := "http://" + ic.Host + ":" + ic.Port
+	scheme := "http"
+	if ic.UseSSL {
+		scheme = "https"
+	}
+	url := scheme + "://" + ic.Host + ":" + ic.Port
 
 	s.bpConfig = client.BatchPointsConfig{
 		Database:  ic.Database,
@@ -44,9 +48,10 @@ func (s *InfluxDBSink) Init(_ context.Context, cluster string, config *tomlConfi
 	}
 
 	dbClient, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     url,
-		Username: username,
-		Password: password,
+		Addr:               url,
+		Username:           username,
+		Password:           password,
+		InsecureSkipVerify: ic.InsecureSkipVerify,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create InfluxDB client: %w", err)
